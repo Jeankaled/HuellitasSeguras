@@ -1,0 +1,34 @@
+-- 1. TABLA PRINCIPAL MULTI-TENANT
+CREATE TABLE Refugios (
+  id SERIAL PRIMARY KEY,
+  rut VARCHAR(20) UNIQUE NOT NULL,
+  nombre_organizacion VARCHAR(150) NOT NULL,
+  direccion VARCHAR(255),
+  email_contacto VARCHAR(150),
+  telefono VARCHAR(20),
+  fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. TABLA DE USUARIOS (Staff del refugio)
+CREATE TABLE Usuarios (
+  id SERIAL PRIMARY KEY,
+  refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
+  rut VARCHAR(20) UNIQUE NOT NULL,
+  nombre_completo VARCHAR(150) NOT NULL,
+  email VARCHAR(150) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  rol VARCHAR(50) DEFAULT 'Voluntario'
+);
+
+-- 3. TABLA DE ANIMALES (Art. 23 Ley 21.020)
+CREATE TABLE Animales (
+  id SERIAL PRIMARY KEY,
+  refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
+  nombre VARCHAR(100) NOT NULL,
+  especie VARCHAR(50),
+  raza VARCHAR(100),
+  sexo VARCHAR(20),
+  fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  estado VARCHAR(50) DEFAULT 'Disponible',
+  microchip number 
+);
