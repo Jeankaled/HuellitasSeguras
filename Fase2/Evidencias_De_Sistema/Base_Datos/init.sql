@@ -30,5 +30,5 @@ CREATE TABLE Animales (
   sexo VARCHAR(20),
   fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   estado VARCHAR(50) DEFAULT 'Disponible',
-  microchip number 
+  microchip VARCHAR(50) UNIQUE
 );
