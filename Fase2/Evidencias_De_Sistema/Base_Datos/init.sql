@@ -32,3 +32,41 @@ CREATE TABLE Animales (
   estado VARCHAR(50) DEFAULT 'Disponible',
   microchip VARCHAR(50) UNIQUE
 );
+
+-- 4. TABLA DE ADOPTANTES (Ciudadanos / KYC)
+CREATE TABLE Adoptantes (
+  id SERIAL PRIMARY KEY,
+  rut VARCHAR(20) UNIQUE NOT NULL,
+  nombre_completo VARCHAR(150) NOT NULL,
+  email VARCHAR(150) UNIQUE NOT NULL,
+  telefono VARCHAR(20),
+  direccion VARCHAR(255),
+  estado_verificacion_contacto BOOLEAN DEFAULT FALSE
+);
+
+-- 5. TABLA DE FICHAS CLÍNICAS (Historial Médico)
+CREATE TABLE Fichas_Clinicas (
+  id SERIAL PRIMARY KEY,
+  animal_id INTEGER REFERENCES Animales(id) ON DELETE CASCADE,
+  refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
+  esterilizado BOOLEAN DEFAULT FALSE,
+  vacunas_al_dia BOOLEAN DEFAULT FALSE,
+  peso_kg DECIMAL(5,2),
+  diagnostico_ingreso TEXT,
+  observaciones_medicas TEXT,
+  fecha_ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. TABLA DE CONTRATOS DE ADOPCIÓN (Módulo Legal - Ley 19.799)
+CREATE TABLE Contratos_Adopcion (
+  id SERIAL PRIMARY KEY,
+  refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
+  animal_id INTEGER REFERENCES Animales(id) ON DELETE CASCADE,
+  adoptante_id INTEGER REFERENCES Adoptantes(id) ON DELETE CASCADE,
+  fecha_firma TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  pdf_url VARCHAR(255),
+  codigo_otp_firma VARCHAR(10),
+  ip_firma VARCHAR(50),
+  estampa_tiempo TIMESTAMP,
+  estado_firma VARCHAR(50) DEFAULT 'Pendiente'
+);
