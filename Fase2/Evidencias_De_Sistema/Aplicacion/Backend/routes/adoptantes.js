@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const bcrypt = require('bcrypt');
 
 
 router.get('/', async (req, res) => {
@@ -28,15 +29,20 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const { rut, nombre_completo, email, telefono, direccion } = req.body;
+        const { rut, nombre_completo, email, password, telefono, direccion } = req.body;
+        
+        // Encriptar la contraseña del adoptante
+        const saltRounds = 10;
+        const password_hash = await bcrypt.hash(password, saltRounds);
+
         const resultado = await db.query(
-            `INSERT INTO Adoptantes (rut, nombre_completo, email, telefono, direccion) 
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [rut, nombre_completo, email, telefono, direccion]
+            `INSERT INTO Adoptantes (rut, nombre_completo, email, password_hash, telefono, direccion) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, nombre_completo, email`,
+            [rut, nombre_completo, email, password_hash, telefono, direccion]
         );
-        res.status(201).json({ mensaje: "Adoptante creado", datos: resultado.rows[0] });
+        res.status(201).json({ mensaje: "Adoptante creado con éxito", datos: resultado.rows[0] });
     } catch (error) {
-        res.status(500).json({ error: "Error al crear adoptante", detalle: error.message });
+        res.status(500).json({ error: "Error al crear adoptante" });
     }
 });
 

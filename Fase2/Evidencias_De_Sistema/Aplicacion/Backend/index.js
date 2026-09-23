@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors()); 
 app.use(express.json()); 
+app.use('/uploads', express.static('uploads')); // Expone la carpeta de imágenes al frontend
 
 
 // 1. IMPORTAR MIDDLEWARE DE SEGURIDAD
