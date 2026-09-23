@@ -1,154 +1,310 @@
-import { useState } from 'react'
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 
-export default function Registro({ onNavigateToLogin }) {
-  const [nombre, setNombre] = useState('')
-  const [tipoCuenta, setTipoCuenta] = useState('adoptante') // 'adoptante' o 'fundacion'
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+export default function Registro() {
+  const navigate = useNavigate();
   
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  // Tipo de cuenta: 'adoptante' o 'fundacion'
+  const [tipoCuenta, setTipoCuenta] = useState('adoptante');
+
+  // Datos Compartidos
+  const [correo, setCorreo] = useState('');
+  const [password, setPassword] = useState('');
+  const [telefono, setTelefono] = useState('');
+
+  // Datos Adoptante
+  const [nombreAdoptante, setNombreAdoptante] = useState('');
+  const [apellidoAdoptante, setApellidoAdoptante] = useState('');
+
+  // Datos Fundación
+  const [nombreOrg, setNombreOrg] = useState('');
+  const [rut, setRut] = useState('');
+  const [direccion, setDireccion] = useState('');
+
+  // Personalización Fundación
+  const [logo, setLogo] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [colorPrincipal, setColorPrincipal] = useState('#F9A8D4');
+  const [colorSecundario, setColorSecundario] = useState('#93C5FD');
+
+  const [loading, setLoading] = useState(false);
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setLogo(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
-    // Simulamos el envío al backend que haremos después
-    console.log("Registrando usuario:", { nombre, tipoCuenta, email, password })
-    
-    setTimeout(() => {
-      setLoading(false)
-      alert("¡Cuenta creada con éxito! (Simulación)")
-      onNavigateToLogin() // Regresamos al login
-    }, 1500)
-  }
+    try {
+      if (tipoCuenta === 'fundacion') {
+        // Lógica para Fundación (Requiere FormData por la imagen)
+        const formData = new FormData();
+        formData.append('nombre_organizacion', nombreOrg);
+        formData.append('rut', rut);
+        formData.append('email', correo);
+        formData.append('password', password);
+        formData.append('telefono', telefono);
+        formData.append('direccion', direccion);
+        formData.append('color_principal', colorPrincipal);
+        formData.append('color_secundario', colorSecundario);
+        if (logo) formData.append('logo', logo);
+
+        // await fetch('URL/fundaciones', { method: 'POST', body: formData });
+        console.log('Datos de fundación (FormData):', Object.fromEntries(formData));
+        alert('Fundación registrada. Pendiente de verificación.');
+
+      } else {
+        // Lógica para Adoptante (JSON simple) ajustada
+        const adoptanteData = {
+          nombre: nombreAdoptante,
+          apellido: apellidoAdoptante,
+          email: correo,
+          password: password,
+          telefono: telefono
+        };
+
+        const respuesta = await fetch('http://localhost:3000/registro/adoptante', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(adoptanteData) 
+        });
+
+        const data = await respuesta.json();
+
+        if (!respuesta.ok) {
+           throw new Error(data.error || 'Hubo un error al registrar el adoptante');
+        }
+        
+        alert('Cuenta de adoptante creada con éxito.');
+      }
+      
+      navigate('/login');
+    } catch (error) {
+      console.error('Error al registrar:', error);
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-sky-100 p-4 relative overflow-hidden">
-      
-      {/* Iconos de fondo flotantes */}
-      <div className="absolute top-12 left-12 text-6xl opacity-20 hidden md:block">🦴</div>
-      <div className="absolute bottom-12 right-12 text-6xl opacity-20 hidden md:block">🧶</div>
-      <div className="absolute top-24 right-24 text-5xl opacity-20 hidden md:block">🐾</div>
-      
-      <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md relative z-10 border-4 border-white mt-8 mb-8">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans text-slate-700">
+      <div className="max-w-6xl w-full bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col lg:flex-row min-h-150">
         
-        {/* Detalle superior Plateado Brillante */}
-        <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-slate-300 via-slate-100 to-slate-300 shadow-[0_2px_10px_rgba(203,213,225,0.8)] rounded-t-[2.5rem]"></div>
-
-        {/* Encabezado */}
-        <div className="text-center mb-6 mt-2">
-          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-pink-300 mb-2 drop-shadow-sm">
-            Únete a la Familia
-          </h1>
-          <p className="text-sky-700 font-medium text-sm px-2">
-            Crea tu cuenta y ayúdanos a cambiar vidas 🐶🐱
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-600 rounded-xl text-center text-sm font-bold animate-pulse">
-            {error}
+        {/* COLUMNA IZQUIERDA: Formulario */}
+        <div className="w-full lg:w-3/5 p-8 lg:p-12 overflow-y-auto max-h-[90vh]">
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-2">
+              <span className="text-pink-400 text-2xl">🐾</span>
+              <h1 className="text-2xl font-bold text-slate-800">Huellita Segura</h1>
+            </div>
+            <Link to="/login" className="text-sm text-pink-400 hover:underline font-medium">
+              Ya tengo cuenta
+            </Link>
           </div>
-        )}
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          
           {/* Selector de Tipo de Cuenta */}
-          <div className="flex gap-4 mb-2">
-            <button
+          <div className="flex p-1 bg-slate-100 rounded-xl mb-8">
+            <button 
               type="button"
               onClick={() => setTipoCuenta('adoptante')}
-              className={`flex-1 py-2 px-2 rounded-xl font-bold text-sm transition-all ${tipoCuenta === 'adoptante' ? 'bg-pink-300 text-white shadow-md' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+              className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
+                tipoCuenta === 'adoptante' 
+                  ? 'bg-white shadow-sm text-pink-500' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
             >
-              🙋‍♀️ Adoptante
+              Quiero Adoptar
             </button>
-            <button
+            <button 
               type="button"
               onClick={() => setTipoCuenta('fundacion')}
-              className={`flex-1 py-2 px-2 rounded-xl font-bold text-sm transition-all ${tipoCuenta === 'fundacion' ? 'bg-pink-300 text-white shadow-md' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+              className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
+                tipoCuenta === 'fundacion' 
+                  ? 'bg-white shadow-sm text-pink-500' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
             >
-              🏡 Fundación
+              Soy una Fundación
             </button>
           </div>
 
-          <div className="relative">
-            <label className="block text-sm font-extrabold text-sky-800 mb-1 ml-1">
-              {tipoCuenta === 'adoptante' ? 'Tu Nombre' : 'Nombre de la Fundación'}
-            </label>
-            <input 
-              type="text" 
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder={tipoCuenta === 'adoptante' ? 'Ej. Ana Pérez' : 'Ej. Refugio Esperanza'}
-              className="w-full px-4 py-3 border-2 border-sky-100 rounded-2xl focus:outline-none focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all bg-sky-50 text-slate-700 font-medium placeholder:text-sky-300"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div className="relative">
-            <label className="block text-sm font-extrabold text-sky-800 mb-1 ml-1">
-              Correo Electrónico
-            </label>
-            <input 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="correo@ejemplo.com"
-              className="w-full px-4 py-3 border-2 border-sky-100 rounded-2xl focus:outline-none focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all bg-sky-50 text-slate-700 font-medium placeholder:text-sky-300"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div className="relative">
-            <label className="block text-sm font-extrabold text-sky-800 mb-1 ml-1">
-              Contraseña
-            </label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-4 py-3 border-2 border-sky-100 rounded-2xl focus:outline-none focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all bg-sky-50 text-slate-700 font-medium placeholder:text-sky-300"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <button 
-            type="submit"
-            disabled={loading}
-            className={`group relative w-full text-white font-extrabold text-lg py-4 px-4 rounded-2xl transition-all duration-300 mt-4 overflow-hidden ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-pink-300 hover:bg-pink-400 shadow-[0_8px_20px_-6px_rgba(244,114,182,0.6)] hover:shadow-[0_12px_25px_-6px_rgba(244,114,182,0.8)] hover:-translate-y-1'}`}
-          >
-            {!loading && (
-              <div className="absolute top-0 -left-[100%] w-1/2 h-full bg-gradient-to-r from-transparent via-slate-100/60 to-transparent skew-x-12 group-hover:left-[200%] transition-all duration-1000 ease-out z-0"></div>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            
+            {/* CAMPOS PARA ADOPTANTE */}
+            {tipoCuenta === 'adoptante' && (
+              <div className="animate-fadeIn">
+                <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">Tus Datos Personales</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input 
+                    type="text" placeholder="👤 Nombre" 
+                    value={nombreAdoptante} onChange={(e) => setNombreAdoptante(e.target.value)}
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                  />
+                  <input 
+                    type="text" placeholder="👤 Apellido" 
+                    value={apellidoAdoptante} onChange={(e) => setApellidoAdoptante(e.target.value)}
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                  />
+                  <input 
+                    type="email" placeholder="✉️ Correo Electrónico" 
+                    value={correo} onChange={(e) => setCorreo(e.target.value)}
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2" required
+                  />
+                  <input 
+                    type="password" placeholder="🔒 Contraseña" 
+                    value={password} onChange={(e) => setPassword(e.target.value)}
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                  />
+                  <input 
+                    type="text" placeholder="📱 Teléfono (Opcional)" 
+                    value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm"
+                  />
+                </div>
+              </div>
             )}
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              {loading ? 'Creando cuenta... ⏳' : 'Registrarme ✨'}
-            </span>
-          </button>
-          
-        </form>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-sky-700 font-medium mb-3">
-            ¿Ya tienes una cuenta en Huellitas?
-          </p>
-          <button 
-            onClick={onNavigateToLogin}
-            type="button"
-            disabled={loading}
-            className="text-pink-400 hover:text-pink-500 font-extrabold transition-colors underline decoration-2 underline-offset-4"
-          >
-            Volver a Iniciar Sesión
-          </button>
+            {/* CAMPOS PARA FUNDACIÓN */}
+            {tipoCuenta === 'fundacion' && (
+              <div className="animate-fadeIn space-y-8">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">1. Datos de la Organización</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input 
+                      type="text" placeholder="🏢 Nombre (Ej. Refugio Esperanza)" 
+                      value={nombreOrg} onChange={(e) => setNombreOrg(e.target.value)}
+                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                    />
+                    <input 
+                      type="text" placeholder="📄 RUT Organización" 
+                      value={rut} onChange={(e) => setRut(e.target.value)}
+                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                    />
+                    <input 
+                      type="email" placeholder="✉️ Correo del Administrador" 
+                      value={correo} onChange={(e) => setCorreo(e.target.value)}
+                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                    />
+                    <input 
+                      type="password" placeholder="🔒 Contraseña Segura" 
+                      value={password} onChange={(e) => setPassword(e.target.value)}
+                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                    />
+                    <input 
+                      type="text" placeholder="📞 Teléfono de Contacto" 
+                      value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                    />
+                    <input 
+                      type="text" placeholder="📍 Dirección Física" 
+                      value={direccion} onChange={(e) => setDireccion(e.target.value)}
+                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2" required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">🎨 2. Personalización de Marca</h2>
+                  <div className="mb-4">
+                    <label className="block text-sm text-slate-600 mb-2">Logo Corporativo</label>
+                    <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:bg-slate-50 transition-colors relative">
+                      <input 
+                        type="file" accept="image/*" onChange={handleLogoUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className="text-4xl text-slate-400 mb-2">☁️</div>
+                      <p className="text-sm font-medium text-slate-600">Arrastra tu logo aquí o haz clic para subir</p>
+                      <p className="text-xs text-slate-400 mt-1">PNG, JPG hasta 2MB</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm text-slate-600 mb-2">Color Principal</label>
+                      <div className="flex items-center gap-3 border border-slate-200 rounded-xl p-2">
+                        <input type="color" value={colorPrincipal} onChange={(e) => setColorPrincipal(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                        <span className="text-sm text-slate-500 uppercase">{colorPrincipal}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-600 mb-2">Color Secundario</label>
+                      <div className="flex items-center gap-3 border border-slate-200 rounded-xl p-2">
+                        <input type="color" value={colorSecundario} onChange={(e) => setColorSecundario(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                        <span className="text-sm text-slate-500 uppercase">{colorSecundario}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-pink-400 hover:bg-pink-500 text-white font-bold py-4 rounded-xl transition-colors flex justify-center items-center gap-2 mt-4 shadow-lg shadow-pink-200"
+            >
+              {loading ? 'Procesando...' : (tipoCuenta === 'adoptante' ? 'Crear Cuenta' : 'Registrar Fundación')}
+            </button>
+          </form>
+        </div>
+
+        {/* COLUMNA DERECHA: Dinámica según el tipo de cuenta */}
+        <div className="hidden lg:flex w-2/5 bg-slate-100 p-8 flex-col items-center justify-center relative border-l border-slate-200">
+          
+          {tipoCuenta === 'adoptante' ? (
+            <div className="text-center flex flex-col items-center justify-center space-y-6 animate-fadeIn">
+              <div className="text-8xl">🐶❤️🐱</div>
+              <h3 className="text-2xl font-bold text-slate-700">Encuentra a tu mejor amigo</h3>
+              <p className="text-slate-500 max-w-xs text-sm">
+                Crea tu cuenta para guardar tus mascotas favoritas, agendar visitas y comenzar un proceso de adopción responsable.
+              </p>
+            </div>
+          ) : (
+            <div className="animate-fadeIn w-full flex flex-col items-center">
+              <div className="text-center mb-6">
+                <h3 className="font-bold text-slate-600">PREVISUALIZACIÓN EN VIVO</h3>
+                <p className="text-xs text-slate-400">Así verán tu plataforma los usuarios</p>
+              </div>
+
+              {/* Mockup de la App */}
+              <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg flex overflow-hidden h-96 transform scale-95 border border-slate-100">
+                <div className="w-1/3 p-4 flex flex-col gap-4 text-white text-xs font-medium transition-colors" style={{ backgroundColor: colorPrincipal }}>
+                  <div className="h-10 bg-white/20 rounded-lg flex items-center justify-center p-1">
+                    {logoPreview ? (
+                      <img src={logoPreview} alt="Logo" className="max-h-full max-w-full object-contain" />
+                    ) : (
+                      <span className="text-[10px]">Tu Logo</span>
+                    )}
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-md">🏠 Inicio</div>
+                  <div className="p-2 opacity-80">🐾 Mascotas</div>
+                  <div className="p-2 opacity-80">👥 Adoptantes</div>
+                </div>
+                
+                <div className="w-2/3 p-4 flex flex-col gap-3">
+                  <div className="h-4 w-1/3 rounded bg-slate-200"></div>
+                  <div className="flex-1 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-center p-4">
+                    <div className="w-12 h-12 rounded-full mb-2 flex items-center justify-center text-white text-xl transition-colors" style={{ backgroundColor: colorSecundario }}>🐾</div>
+                    <p className="text-xs font-bold text-slate-700">Nueva Adopción</p>
+                    <p className="text-[10px] text-slate-400 mt-1 mb-3">Gestiona un nuevo proceso para tu organización.</p>
+                    <div className="px-4 py-2 rounded-lg text-white text-[10px] transition-colors" style={{ backgroundColor: colorPrincipal }}>
+                      Iniciar Proceso
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
     </div>
-  )
+  );
 }
