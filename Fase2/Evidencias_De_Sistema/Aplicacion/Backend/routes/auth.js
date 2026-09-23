@@ -6,20 +6,28 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 require('dotenv').config();
 
-
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         let usuario = null;
         let tipoUsuario = null;
+        let coloresTema = null; 
 
-        // 1. Buscar primero en el Staff del Refugio
-        let resultado = await db.query('SELECT * FROM Usuarios WHERE email = $1', [email]);
+        let resultado = await db.query(`
+            SELECT u.*, r.color_principal, r.color_secundario, r.nombre_organizacion
+            FROM Usuarios u
+            JOIN Refugios r ON u.refugio_id = r.id
+            WHERE u.email = $1
+        `, [email]);
+
         if (resultado.rowCount > 0) {
             usuario = resultado.rows[0];
             tipoUsuario = 'Staff';
+            coloresTema = {
+                principal: usuario.color_principal,
+                secundario: usuario.color_secundario
+            };
         } else {
-            // 2. Si no es Staff, buscar en Adoptantes Globales
             resultado = await db.query('SELECT * FROM Adoptantes WHERE email = $1', [email]);
             if (resultado.rowCount > 0) {
                 usuario = resultado.rows[0];
@@ -27,23 +35,20 @@ router.post('/login', async (req, res) => {
             }
         }
 
-        // 3. Validar si existe el correo
         if (!usuario) {
             return res.status(401).json({ error: "Correo o contraseña incorrectos" });
         }
 
-        // 4. Validar contraseña con Bcrypt
         const passwordValida = await bcrypt.compare(password, usuario.password_hash);
         if (!passwordValida) {
             return res.status(401).json({ error: "Correo o contraseña incorrectos" });
         }
 
-        // 5. Fabricar Token Dinámico
-        // Si es adoptante, su rol es 'Adoptante' y NO tiene refugio_id, lo que le permite ver todo.
         const payloadToken = {
             id: usuario.id,
             rol: tipoUsuario === 'Staff' ? usuario.rol : 'Adoptante'
         };
+        
         if (tipoUsuario === 'Staff') {
             payloadToken.refugio_id = usuario.refugio_id;
         }
@@ -55,7 +60,10 @@ router.post('/login', async (req, res) => {
             token: token,
             usuario: {
                 nombre: usuario.nombre_completo,
-                rol: payloadToken.rol
+                organizacion: usuario.nombre_organizacion,
+                rol: payloadToken.rol,
+                refugio_id: payloadToken.refugio_id,
+                tema: coloresTema 
             }
         });
 

@@ -3,14 +3,35 @@ const router = express.Router();
 const db = require('../db');
 const multer = require('multer');
 const path = require('path');
+const bcrypt = require('bcrypt');
 
+// 1. Configuración de almacenamiento (ya la tenías)
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'uploads/'),
     filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname)); // Nombre único
+        cb(null, Date.now() + path.extname(file.originalname)); 
     }
 });
-const upload = multer({ storage: storage });
+
+// 2. NUEVO: Filtro para aceptar SOLO imágenes
+const fileFilter = (req, file, cb) => {
+    const tiposPermitidos = /jpeg|jpg|png|webp/;
+    const extensionValida = tiposPermitidos.test(path.extname(file.originalname).toLowerCase());
+    const mimetypeValido = tiposPermitidos.test(file.mimetype);
+
+    if (extensionValida && mimetypeValido) {
+        return cb(null, true);
+    } else {
+        cb(new Error('Formato de archivo no válido. Solo se permiten JPG, PNG y WEBP.'));
+    }
+};
+
+// 3. NUEVO: Agregar límite de peso (ej. 5 Megabytes) y el filtro
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: fileFilter
+});
 
 //CRUD REFUGIOS
 router.get('/', async (req, res) => {
@@ -31,21 +52,39 @@ router.get('/', async (req, res) => {
 // POST Mixto: JSON + Archivo
 router.post('/', upload.single('logo'), async (req, res) => {
     try {
-        const { rut, nombre_organizacion, direccion, email_contacto, telefono, color_principal, color_secundario } = req.body;
+        // 1. Extraemos TODOS los datos del frontend (incluyendo password)
+        const { rut, nombre_organizacion, direccion, email_contacto, telefono, color_principal, color_secundario, password } = req.body;
         
-        // Si hay archivo, construimos la URL pública local
+        if (!password) {
+            return res.status(400).json({ error: "La contraseña es obligatoria" });
+        }
+
+        // 2. Construimos la URL pública local para el logo
         const logo_url = req.file ? `http://localhost:3000/uploads/${req.file.filename}` : null;
 
+        // 3. Crear el Refugio (La Organización) y rescatar su nuevo ID
         const nuevoRefugio = await db.query(
             `INSERT INTO Refugios (rut, nombre_organizacion, direccion, email_contacto, telefono, logo_url, color_principal, color_secundario, estado_verificacion) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente') RETURNING *`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente') RETURNING id`,
             [rut, nombre_organizacion, direccion, email_contacto, telefono, logo_url, color_principal, color_secundario]
         );
 
-        res.status(201).json({ mensaje: "Refugio registrado (Pendiente de aprobación)", datos: nuevoRefugio.rows[0] });
+        const refugio_id = nuevoRefugio.rows[0].id;
+
+        // 4. Encriptar contraseña y crear al Administrador principal (El Usuario)
+        const saltRounds = 10;
+        const password_hash = await bcrypt.hash(password, saltRounds);
+
+        await db.query(
+            `INSERT INTO Usuarios (refugio_id, rut, nombre_completo, email, password_hash, rol) 
+             VALUES ($1, $2, $3, $4, $5, 'Administrador')`,
+            [refugio_id, rut, `Admin ${nombre_organizacion}`, email_contacto, password_hash]
+        );
+
+        res.status(201).json({ mensaje: "Refugio y administrador creados con éxito (Pendiente de aprobación)" });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Hubo un problema al registrar el refugio" });
+        console.error("Error al registrar fundación:", error);
+        res.status(500).json({ error: "Hubo un problema al registrar la fundación" });
     }
 });
 

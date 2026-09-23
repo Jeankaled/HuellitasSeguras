@@ -3,8 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import PanelGestion from './pages/PanelGestion';
 import Registro from './pages/Registro';
+import { Toaster } from 'react-hot-toast'; 
 
 function App() {
+  
   const [token, setToken] = useState(localStorage.getItem('token'));
 
   // Actualiza el estado en memoria para dar paso al panel
@@ -21,6 +23,9 @@ function App() {
 
   return (
     <Router>
+      {/* El Toaster va justo dentro del Router, antes de las rutas */}
+      <Toaster position="top-center" /> 
+      
       <Routes>
         {/* 1. La ruta raíz redirige lógicamente */}
         <Route path="/" element={<Navigate to={token ? "/panel" : "/login"} replace />} />

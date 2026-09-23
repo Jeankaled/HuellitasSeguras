@@ -3,24 +3,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const bcrypt = require('bcrypt');
+const verificarToken = require('../middlewares/verificarToken');
 
-
-router.get('/', async (req, res) => {
+// OBTENER TODOS (Filtrados estrictamente por el refugio activo)
+router.get('/', verificarToken, async (req, res) => {
     try {
-        const resultado = await db.query('SELECT * FROM Adoptantes');
-        res.json({ mensaje: "Lista obtenida", cantidad: resultado.rowCount, datos: resultado.rows });
-    } catch (error) {
-        res.status(500).json({ error: "Error al consultar adoptantes" });
-    }
-});
-
-
-router.get('/', async (req, res) => {
-    try {
-        // 1. Extraemos el refugio del administrador logueado desde su Token
+        // Extraemos el refugio del administrador desde el token interceptado
         const { refugio_id } = req.usuario; 
 
-        // 2. Filtramos usando un JOIN: Solo traemos adoptantes que postularon a ESTE refugio
+        // Solo traemos adoptantes que tengan una postulación activa en ESTE refugio
         const consulta = `
             SELECT DISTINCT a.* 
             FROM Adoptantes a
@@ -29,36 +20,36 @@ router.get('/', async (req, res) => {
         `;
         
         const resultado = await db.query(consulta, [refugio_id]);
-        
-        res.json({ 
-            mensaje: "Lista de postulantes obtenida de forma segura", 
-            cantidad: resultado.rowCount, 
-            datos: resultado.rows 
-        });
+        res.json({ mensaje: "Lista obtenida de forma segura", cantidad: resultado.rowCount, datos: resultado.rows });
     } catch (error) {
-        console.error("Error al consultar adoptantes filtrados:", error);
-        res.status(500).json({ error: "Error al consultar adoptantes" });
+        res.status(500).json({ error: "Error al consultar adoptantes filtrados" });
     }
 });
 
+// OBTENER UNO POR ID
+router.get('/:id', verificarToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const resultado = await db.query('SELECT * FROM Adoptantes WHERE id = $1', [id]);
+        if (resultado.rowCount === 0) return res.status(404).json({ error: "Adoptante no encontrado" });
+        res.json(resultado.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: "Error al consultar adoptante" });
+    }
+});
 
-
-
+// CREAR ADOPTANTE (Público - Para el formulario de registro)
 router.post('/', async (req, res) => {
     try {
-        // 1. Extraemos TODOS los datos que envía el frontend (incluyendo el password)
         const { rut, nombre_completo, email, telefono, direccion, password } = req.body;
 
-        // 2. Validación de seguridad básica
         if (!nombre_completo || !email || !password) {
             return res.status(400).json({ error: "Faltan campos obligatorios para crear la cuenta básica" });
         }
 
-        // 3. Encriptación de la contraseña antes de guardarla
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
 
-        // 4. Inserción en la Base de Datos (El RUT puede llegar vacío / null)
         const nuevoAdoptante = await db.query(
             `INSERT INTO Adoptantes (rut, nombre_completo, email, password_hash, telefono, direccion) 
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, nombre_completo, email`,
@@ -72,8 +63,6 @@ router.post('/', async (req, res) => {
 
     } catch (error) {
         console.error("Error en POST adoptantes:", error);
-        
-        // Manejo amigable si el correo ya existe en la base de datos
         if (error.code === '23505') {
             return res.status(400).json({ error: "Este correo electrónico ya está registrado" });
         }
@@ -81,8 +70,8 @@ router.post('/', async (req, res) => {
     }
 });
 
-
-router.put('/:id', async (req, res) => {
+// ACTUALIZAR ADOPTANTE
+router.put('/:id', verificarToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre_completo, telefono, direccion, estado_verificacion_contacto } = req.body;
@@ -99,8 +88,8 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-
-router.delete('/:id', async (req, res) => {
+// ELIMINAR ADOPTANTE
+router.delete('/:id', verificarToken, async (req, res) => {
     try {
         const { id } = req.params;
         const resultado = await db.query('DELETE FROM Adoptantes WHERE id = $1 RETURNING *', [id]);
