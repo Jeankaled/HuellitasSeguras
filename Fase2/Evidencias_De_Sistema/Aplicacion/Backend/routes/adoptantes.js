@@ -15,14 +15,29 @@ router.get('/', async (req, res) => {
 });
 
 
-router.get('/:id', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const { id } = req.params;
-        const resultado = await db.query('SELECT * FROM Adoptantes WHERE id = $1', [id]);
-        if (resultado.rowCount === 0) return res.status(404).json({ error: "Adoptante no encontrado" });
-        res.json(resultado.rows[0]);
+        // 1. Extraemos el refugio del administrador logueado desde su Token
+        const { refugio_id } = req.usuario; 
+
+        // 2. Filtramos usando un JOIN: Solo traemos adoptantes que postularon a ESTE refugio
+        const consulta = `
+            SELECT DISTINCT a.* 
+            FROM Adoptantes a
+            JOIN Postulaciones p ON a.id = p.adoptante_id
+            WHERE p.refugio_id = $1
+        `;
+        
+        const resultado = await db.query(consulta, [refugio_id]);
+        
+        res.json({ 
+            mensaje: "Lista de postulantes obtenida de forma segura", 
+            cantidad: resultado.rowCount, 
+            datos: resultado.rows 
+        });
     } catch (error) {
-        res.status(500).json({ error: "Error al consultar adoptante" });
+        console.error("Error al consultar adoptantes filtrados:", error);
+        res.status(500).json({ error: "Error al consultar adoptantes" });
     }
 });
 

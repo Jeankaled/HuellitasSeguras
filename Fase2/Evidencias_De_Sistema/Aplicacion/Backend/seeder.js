@@ -4,7 +4,7 @@ require('dotenv').config();
 
 const inyectarDatosMasivos = async () => {
     try {
-        console.log(" Iniciando inyección MASIVA, ALEATORIA y MULTI-TENANT...");
+        console.log(" Iniciando inyección MASIVA, ESTÁTICA y MULTI-TENANT...");
 
         // 1. CREAR REFUGIOS CON IDENTIDAD VISUAL ÚNICA
         const refugio1 = await db.query(
@@ -18,7 +18,6 @@ const inyectarDatosMasivos = async () => {
              VALUES ('77.777.777-7', 'Fundación Esperanza', 'Av. Los Pinos 456', 'contacto@esperanza.cl', '+56998877665', '#34D399', '#FDE047', 'aprobado') RETURNING id;`
         );
         const ref2_id = refugio2.rows[0].id;
-        const refugiosIds = [ref1_id, ref2_id];
         console.log(" 2 Refugios creados (Identidad visual diferenciada)");
 
         // 2. CREAR ADMINISTRADORES
@@ -37,68 +36,65 @@ const inyectarDatosMasivos = async () => {
         );
         console.log(" 2 Usuarios administradores listos (Pass: admin123)");
 
-        // 3. CREAR ADOPTANTES (Vitrineo y Perfiles Completos)
+        // 3. CREAR ADOPTANTES GLOBALES (Ciudadanos)
         const nombresAdoptantes = ['María González', 'Juan Pérez', 'Camila Rojas', 'Pedro Silva', 'Ana Soto', 'Luis Torres', 'Carlos Díaz', 'Marta Gómez'];
         const adoptantesIds = [];
         
         for (let i = 0; i < nombresAdoptantes.length; i++) {
-            // Simulamos que algunos dejaron el RUT vacío (Registro Progresivo)
-            const rutSimulado = i % 3 === 0 ? null : `1${i}.000.000-${i}`;
-            
             const adop = await db.query(
                 `INSERT INTO Adoptantes (rut, nombre_completo, email, password_hash, telefono, direccion)
                  VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;`,
-                [rutSimulado, nombresAdoptantes[i], `adoptante${i}@gmail.com`, hash, `+5690000000${i}`, `Avenida Siempreviva ${i}`]
+                [`1${i}.000.000-${i}`, nombresAdoptantes[i], `adoptante${i}@gmail.com`, hash, `+5690000000${i}`, `Avenida Siempreviva ${i}`]
             );
             adoptantesIds.push(adop.rows[0].id);
         }
-        console.log(" Adoptantes creados (Soportando Registro Progresivo sin RUT)");
+        console.log(" Adoptantes globales creados");
 
-        // 4. CREAR ANIMALES Y FICHAS CLÍNICAS ALEATORIAS
-        const nombresMascotas = ['Luna', 'Max', 'Bella', 'Rocky', 'Coco', 'Toby', 'Kira', 'Bimba', 'Zeus', 'Milo'];
-        const razas = ['Mestizo', 'Poodle', 'Labrador', 'Pug', 'Persa'];
+        // 4. CREAR ANIMALES TOTALMENTE SEPARADOS (Nombres limpios, sin números)
         const animalesIds = [];
         
-        for (let i = 0; i < 20; i++) {
-            const nombre = nombresMascotas[Math.floor(Math.random() * nombresMascotas.length)]; 
-            const raza = razas[Math.floor(Math.random() * razas.length)];
-            const especie = Math.random() > 0.6 ? 'Gato' : 'Perro'; 
-            const sexo = Math.random() > 0.5 ? 'Macho' : 'Hembra';
-
-            // ASIGNACIÓN ALEATORIA AL REFUGIO
-            const refugioAsignado = refugiosIds[Math.floor(Math.random() * refugiosIds.length)];
-
+        // --- 10 Animales estáticos para Patitas Felices ---
+        const nombresPatitas = ['Firulais', 'Pelusa', 'Manchas', 'Duque', 'Princesa', 'Boby', 'Simba', 'Nala', 'Rocky', 'Mia'];
+        for (let i = 0; i < nombresPatitas.length; i++) {
             const anim = await db.query(
                 `INSERT INTO Animales (refugio_id, nombre, especie, raza, sexo, estado, microchip)
-                 VALUES ($1, $2, $3, $4, $5, 'Disponible', $6) RETURNING id;`,
-                [refugioAsignado, nombre, especie, raza, sexo, `9810200001234${i.toString().padStart(2, '0')}`]
+                 VALUES ($1, $2, 'Perro', 'Mestizo', 'Macho', 'Disponible', $3) RETURNING id;`,
+                [ref1_id, nombresPatitas[i], `9810200001234${i.toString().padStart(2, '0')}`]
             );
-            const anim_id = anim.rows[0].id;
-            animalesIds.push(anim_id);
-
-            // Ficha médica
-            await db.query(
-                `INSERT INTO Fichas_Clinicas (animal_id, refugio_id, esterilizado, vacunas_al_dia, peso_kg, diagnostico_ingreso)
-                 VALUES ($1, $2, true, true, $3, 'Ingresado en buenas condiciones.');`,
-                [anim_id, refugioAsignado, (Math.random() * 20 + 2).toFixed(2)] 
-            );
+            animalesIds.push(anim.rows[0].id);
         }
-        console.log(" 20 Animales distribuidos aleatoriamente");
 
-        // 5. INYECTAR POSTULACIONES SENSIBLES (KYC)
-        for (let i = 0; i < 5; i++) {
-            // Tomamos un animal y verificamos a qué refugio pertenece para atar la postulación correctamente
-            const animalElegido = animalesIds[i];
-            const queryRefugio = await db.query('SELECT refugio_id FROM Animales WHERE id = $1', [animalElegido]);
-            const refugioDelAnimal = queryRefugio.rows[0].refugio_id;
+        // --- 5 Animales estáticos para Fundación Esperanza ---
+        const nombresEsperanza = ['Copito', 'Garfield', 'Rex', 'Laika', 'Snoopy'];
+        for (let i = 0; i < nombresEsperanza.length; i++) {
+            const anim = await db.query(
+                `INSERT INTO Animales (refugio_id, nombre, especie, raza, sexo, estado, microchip)
+                 VALUES ($1, $2, 'Gato', 'Mestizo', 'Hembra', 'Disponible', $3) RETURNING id;`,
+                [ref2_id, nombresEsperanza[i], `9810200009999${i.toString().padStart(2, '0')}`]
+            );
+            animalesIds.push(anim.rows[0].id);
+        }
+        console.log(" Animales distribuidos correctamente (10 a Patitas, 5 a Esperanza)");
 
+        // 5. INYECTAR POSTULACIONES SENSIBLES AISLADAS
+        // Los primeros 3 adoptantes (María, Juan, Camila) postulan a Patitas Felices
+        for (let i = 0; i < 3; i++) {
             await db.query(
                 `INSERT INTO Postulaciones (adoptante_id, animal_id, refugio_id, estado_postulacion, acepta_tratamiento_datos, foto_cedula_url)
                  VALUES ($1, $2, $3, 'En Revisión', true, 'https://ejemplo.com/docs/cedula_mock.jpg');`,
-                [adoptantesIds[i], animalElegido, refugioDelAnimal] 
+                [adoptantesIds[i], animalesIds[i], ref1_id] 
             );
         }
-        console.log(" 5 Postulaciones de adopción inyectadas para la Bandeja de Entrada");
+
+        // Los siguientes 2 adoptantes (Pedro, Ana) postulan a Fundación Esperanza
+        for (let i = 3; i < 5; i++) {
+            await db.query(
+                `INSERT INTO Postulaciones (adoptante_id, animal_id, refugio_id, estado_postulacion, acepta_tratamiento_datos, foto_cedula_url)
+                 VALUES ($1, $2, $3, 'En Revisión', true, 'https://ejemplo.com/docs/cedula_mock.jpg');`,
+                [adoptantesIds[i], animalesIds[10 + (i-3)], ref2_id] 
+            );
+        }
+        console.log(" Postulaciones de adopción inyectadas de forma segura y aislada");
 
         console.log(" ¡PROCESO FINALIZADO! La base de datos está poblada y lista.");
         process.exit(0);
