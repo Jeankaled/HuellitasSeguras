@@ -27,22 +27,42 @@ router.get('/:id', async (req, res) => {
 });
 
 
+
+
 router.post('/', async (req, res) => {
     try {
-        const { rut, nombre_completo, email, password, telefono, direccion } = req.body;
-        
-        // Encriptar la contraseña del adoptante
-        const saltRounds = 10;
-        const password_hash = await bcrypt.hash(password, saltRounds);
+        // 1. Extraemos TODOS los datos que envía el frontend (incluyendo el password)
+        const { rut, nombre_completo, email, telefono, direccion, password } = req.body;
 
-        const resultado = await db.query(
+        // 2. Validación de seguridad básica
+        if (!nombre_completo || !email || !password) {
+            return res.status(400).json({ error: "Faltan campos obligatorios para crear la cuenta básica" });
+        }
+
+        // 3. Encriptación de la contraseña antes de guardarla
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(password, salt);
+
+        // 4. Inserción en la Base de Datos (El RUT puede llegar vacío / null)
+        const nuevoAdoptante = await db.query(
             `INSERT INTO Adoptantes (rut, nombre_completo, email, password_hash, telefono, direccion) 
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, nombre_completo, email`,
-            [rut, nombre_completo, email, password_hash, telefono, direccion]
+            [rut || null, nombre_completo, email, password_hash, telefono || null, direccion || null]
         );
-        res.status(201).json({ mensaje: "Adoptante creado con éxito", datos: resultado.rows[0] });
+
+        res.status(201).json({
+            mensaje: "Cuenta de adoptante creada exitosamente",
+            adoptante: nuevoAdoptante.rows[0]
+        });
+
     } catch (error) {
-        res.status(500).json({ error: "Error al crear adoptante" });
+        console.error("Error en POST adoptantes:", error);
+        
+        // Manejo amigable si el correo ya existe en la base de datos
+        if (error.code === '23505') {
+            return res.status(400).json({ error: "Este correo electrónico ya está registrado" });
+        }
+        res.status(500).json({ error: "Hubo un problema al crear la cuenta" });
     }
 });
 

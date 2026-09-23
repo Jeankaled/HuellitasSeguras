@@ -41,7 +41,7 @@ CREATE TABLE Animales (
 -- TABLA ADOPTANTES ACTUALIZADA (Añadimos password_hash para el login)
 CREATE TABLE Adoptantes (
   id SERIAL PRIMARY KEY,
-  rut VARCHAR(20) UNIQUE NOT NULL,
+  rut VARCHAR(20) UNIQUE,
   nombre_completo VARCHAR(150) NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL, -- Obligatorio para iniciar sesión
@@ -75,4 +75,22 @@ CREATE TABLE Contratos_Adopcion (
   ip_firma VARCHAR(50),
   estampa_tiempo TIMESTAMP,
   estado_firma VARCHAR(50) DEFAULT 'Pendiente'
+);
+
+-- 7. TABLA DE POSTULACIONES (Manejo de Datos Sensibles - Ley 19.628)
+CREATE TABLE Postulaciones (
+  id SERIAL PRIMARY KEY,
+  adoptante_id INTEGER REFERENCES Adoptantes(id) ON DELETE CASCADE,
+  animal_id INTEGER REFERENCES Animales(id) ON DELETE CASCADE,
+  refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
+  fecha_postulacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  estado_postulacion VARCHAR(50) DEFAULT 'En Revisión', -- Opciones: En Revisión, Aprobada, Rechazada
+  
+  -- Evidencias Sensibles (KYC Avanzado)
+  foto_cedula_url VARCHAR(255),
+  foto_domicilio_url VARCHAR(255),
+  comprobante_ingresos_url VARCHAR(255),
+  
+  -- Consentimiento Legal Obligatorio
+  acepta_tratamiento_datos BOOLEAN NOT NULL DEFAULT FALSE
 );
