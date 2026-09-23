@@ -38,13 +38,15 @@ app.get('/', (req, res) => {
 
 // Rutas Públicas
 app.use('/', rutaAuth); // Contiene el POST /login
+app.use('/refugios', rutasRefugios);
+app.use('/adoptantes', rutasAdoptantes);
 
 // Rutas Privadas (Protegidas por el Middleware)
-app.use('/adoptantes', verificarToken, rutasAdoptantes);
+
 app.use('/fichas-clinicas', verificarToken, rutasFichas);
 app.use('/contratos', verificarToken, rutasContratos);
 app.use('/animales', verificarToken, rutasAnimales);
-app.use('/refugios', verificarToken, rutasRefugios);
+
 app.use('/usuarios', verificarToken, rutasUsuarios);
 
 

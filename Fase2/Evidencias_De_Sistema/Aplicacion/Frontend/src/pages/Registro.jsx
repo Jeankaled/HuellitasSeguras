@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import toast from 'react-hot-toast'; // Importación correcta del Toast
 
 export default function Registro() {
   const navigate = useNavigate();
@@ -41,12 +42,15 @@ export default function Registro() {
     e.preventDefault();
     setLoading(true);
 
+    // 1. Iniciamos una notificación visual de carga
+    const toastId = toast.loading('Procesando registro...');
+
     try {
       if (tipoCuenta === 'fundacion') {
         const formData = new FormData();
         formData.append('nombre_organizacion', nombreOrg);
         formData.append('rut', rut);
-        formData.append('email', correo);
+        formData.append('email_contacto', correo); // Corregido: Match con el backend
         formData.append('password', password);
         formData.append('telefono', telefono);
         formData.append('direccion', direccion);
@@ -54,11 +58,22 @@ export default function Registro() {
         formData.append('color_secundario', colorSecundario);
         if (logo) formData.append('logo', logo);
 
-        console.log('Datos de fundación (FormData):', Object.fromEntries(formData));
-        alert('Fundación registrada. Pendiente de verificación.');
+        // Uso de variable de entorno VITE_API_URL
+        const respuesta = await fetch(`${import.meta.env.VITE_API_URL}/refugios`, { 
+          method: 'POST', 
+          body: formData 
+        });
+
+        const data = await respuesta.json();
+        
+        if (!respuesta.ok) {
+           throw new Error(data.error || 'Error al registrar fundación');
+        }
+
+        // 2. Éxito: Actualizamos la notificación de carga a éxito
+        toast.success('¡Fundación y Administrador creados con éxito! Redirigiendo...', { id: toastId });
 
       } else {
-        // CORRECCIÓN: Se ajusta al formato que espera el backend y a la ruta correcta
         const adoptanteData = {
           nombre_completo: `${nombreAdoptante} ${apellidoAdoptante}`,
           email: correo,
@@ -66,7 +81,7 @@ export default function Registro() {
           telefono: telefono
         };
 
-        const respuesta = await fetch('http://localhost:3000/adoptantes', { 
+        const respuesta = await fetch(`${import.meta.env.VITE_API_URL}/adoptantes`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(adoptanteData) 
@@ -78,13 +93,19 @@ export default function Registro() {
            throw new Error(data.error || 'Hubo un error al registrar el adoptante');
         }
         
-        alert('Cuenta de adoptante creada con éxito.');
+        // 2. Éxito: Actualizamos la notificación de carga a éxito
+        toast.success('¡Cuenta de adoptante creada con éxito! Redirigiendo...', { id: toastId });
       }
       
-      navigate('/login');
+      // 3. Esperamos 1.5 segundos para que el usuario lea el mensaje antes de cambiar de página
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+
     } catch (error) {
       console.error('Error al registrar:', error);
-      alert(error.message);
+      // 4. Error: Actualizamos la notificación de carga a error
+      toast.error(error.message, { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -206,14 +227,24 @@ export default function Registro() {
                   <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">🎨 2. Personalización de Marca</h2>
                   <div className="mb-4">
                     <label className="block text-sm text-slate-600 mb-2">Logo Corporativo</label>
-                    <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:bg-slate-50 transition-colors relative">
+                    <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:bg-slate-50 transition-colors relative overflow-hidden flex flex-col items-center justify-center min-h-[120px]">
                       <input 
                         type="file" accept="image/*" onChange={handleLogoUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                       />
-                      <div className="text-4xl text-slate-400 mb-2">☁️</div>
-                      <p className="text-sm font-medium text-slate-600">Arrastra tu logo aquí o haz clic para subir</p>
-                      <p className="text-xs text-slate-400 mt-1">PNG, JPG hasta 2MB</p>
+                      {logoPreview ? (
+                        <div className="flex flex-col items-center animate-fadeIn">
+                          <img src={logoPreview} alt="Preview" className="h-16 object-contain mb-2 rounded-md shadow-sm border border-slate-100" />
+                          <p className="text-sm font-bold text-emerald-500">¡Logo cargado con éxito! ✓</p>
+                          <p className="text-xs text-slate-400 mt-1">Haz clic o arrastra otra imagen para cambiarlo</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <div className="text-4xl text-slate-400 mb-2">☁️</div>
+                          <p className="text-sm font-medium text-slate-600">Arrastra tu logo aquí o haz clic para subir</p>
+                          <p className="text-xs text-slate-400 mt-1">PNG, JPG hasta 2MB</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
