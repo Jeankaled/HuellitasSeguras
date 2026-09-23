@@ -26,17 +26,28 @@ router.post('/', async (req, res) => {
 
 router.get('/', async (req, res) => {
     try {
-        const resultado = await db.query('SELECT * FROM Animales');
+        // Leemos la identidad del usuario desde el Token JWT
+        const { rol, refugio_id } = req.usuario; 
+        let resultado;
+
+        if (rol === 'Administrador' || rol === 'Staff') {
+            // AISLAMIENTO: El refugio SOLO ve sus propios animales
+            resultado = await db.query('SELECT * FROM Animales WHERE refugio_id = $1', [refugio_id]);
+        } else {
+            // CATÁLOGO PÚBLICO: El adoptante ve todos los animales disponibles de cualquier refugio
+            resultado = await db.query("SELECT * FROM Animales WHERE estado = 'Disponible'");
+        }
+
         res.json({
             mensaje: "Lista de animales obtenida",
             cantidad: resultado.rowCount,
             datos: resultado.rows
         });
     } catch (error) {
+        console.error("Error en GET animales:", error);
         res.status(500).json({ error: "Hubo un problema al consultar los animales" });
     }
 });
-
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
