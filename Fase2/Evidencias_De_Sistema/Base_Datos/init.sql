@@ -1,4 +1,4 @@
--- 1. TABLA PRINCIPAL MULTI-TENANT
+-- TABLA REFUGIOS ACTUALIZADA
 CREATE TABLE Refugios (
   id SERIAL PRIMARY KEY,
   rut VARCHAR(20) UNIQUE NOT NULL,
@@ -6,7 +6,12 @@ CREATE TABLE Refugios (
   direccion VARCHAR(255),
   email_contacto VARCHAR(150),
   telefono VARCHAR(20),
-  fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- Nuevos campos solicitados:
+  logo_url VARCHAR(255),
+  color_principal VARCHAR(7),
+  color_secundario VARCHAR(7),
+  estado_verificacion VARCHAR(20) DEFAULT 'pendiente' CHECK (estado_verificacion IN ('pendiente', 'aprobado', 'rechazado'))
 );
 
 -- 2. TABLA DE USUARIOS (Staff del refugio)
@@ -33,12 +38,13 @@ CREATE TABLE Animales (
   microchip VARCHAR(50) UNIQUE
 );
 
--- 4. TABLA DE ADOPTANTES (Ciudadanos / KYC)
+-- TABLA ADOPTANTES ACTUALIZADA (Añadimos password_hash para el login)
 CREATE TABLE Adoptantes (
   id SERIAL PRIMARY KEY,
   rut VARCHAR(20) UNIQUE NOT NULL,
   nombre_completo VARCHAR(150) NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL, -- Obligatorio para iniciar sesión
   telefono VARCHAR(20),
   direccion VARCHAR(255),
   estado_verificacion_contacto BOOLEAN DEFAULT FALSE
