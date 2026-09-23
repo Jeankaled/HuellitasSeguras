@@ -1,19 +1,32 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// Función auxiliar para extraer los datos del JWT sin librerías extra
+const decodificarToken = (token) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch { // <-- CORRECCIÓN: Se quitó la 'e' para evitar error de variable sin uso
+    return null;
+  }
+};
+
 // Recibimos la prop onLogout desde App.jsx
 export default function PanelGestion({ onLogout }) {
   const navigate = useNavigate();
   
   const [adoptantes, setAdoptantes] = useState([]);
   const [animales, setAnimales] = useState([]); 
+  const [refugios, setRefugios] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  // NUEVO ESTADO: Guarda el nombre específico extraído mediante el token
+  const [nombreRefugio, setNombreRefugio] = useState('Refugio');
+
   // Estado para manejar al postulante seleccionado en la "Bandeja de Entrada"
   const [seleccionado, setSeleccionado] = useState(null);
 
- useEffect(() => {
+  useEffect(() => {
     const obtenerDatos = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -26,34 +39,47 @@ export default function PanelGestion({ onLogout }) {
           return;
         }
 
+        const datosUsuario = decodificarToken(token); // <-- Extraemos los datos del token
+
         const headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         };
 
-        // Reemplaza tu bloque Promise.all por este:
-        const [resAdoptantes, resAnimales] = await Promise.all([
+        const [resAdoptantes, resAnimales, resRefugios] = await Promise.all([
           fetch(`${import.meta.env.VITE_API_URL}/adoptantes`, { headers }),
-          fetch(`${import.meta.env.VITE_API_URL}/animales`, { headers })
+          fetch(`${import.meta.env.VITE_API_URL}/animales`, { headers }),
+          fetch(`${import.meta.env.VITE_API_URL}/refugios`, { headers }) 
         ]);
 
         // 2. Si el Token es rechazado (401), limpieza profunda y expulsión
-        // Dentro del useEffect de PanelGestion.jsx (cuando falla el token)
-        if (resAdoptantes.status === 401 || resAnimales.status === 401) {
+        if (resAdoptantes.status === 401 || resAnimales.status === 401 || resRefugios.status === 401) { 
           if (typeof onLogout === 'function') onLogout();
           return;
         } 
 
         const datosAdoptantes = await resAdoptantes.json();
         const datosAnimales = await resAnimales.json();
+        const datosRefugios = await resRefugios.json(); 
 
-        // 3. Procesar datos (Se mantiene tu lógica original)
+        // 3. Procesar datos 
         const listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.data || datosAdoptantes.datos || datosAdoptantes.adoptantes || []);
         const listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.data || datosAnimales.datos || datosAnimales.animales || []);
+        const listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.data || datosRefugios.datos || datosRefugios.refugios || []); 
 
         setAdoptantes(listaAdoptantes);
         setAnimales(listaAnimales);
+        setRefugios(listaRefugios); 
         
+        // CORRECCIÓN: Asignar nombre filtrando el ID único del usuario logueado
+        if (datosUsuario && listaRefugios.length > 0) {
+          const miRefugio = listaRefugios.find(r => r.id === datosUsuario.id || r.usuario_id === datosUsuario.id);
+          const nombreAmostrar = miRefugio?.nombre_organizacion || miRefugio?.nombre || datosUsuario.nombre || 'Refugio';
+          setNombreRefugio(nombreAmostrar);
+        } else if (listaRefugios.length > 0) {
+          setNombreRefugio(listaRefugios[0].nombre_organizacion || listaRefugios[0].nombre || 'Refugio');
+        }
+
         if (listaAdoptantes.length > 0) {
           setSeleccionado(listaAdoptantes[0]);
         }
@@ -65,7 +91,7 @@ export default function PanelGestion({ onLogout }) {
     };
 
     obtenerDatos();
-  }, [navigate]);
+  }, [navigate, onLogout]); // <-- CORRECCIÓN: Se agregó onLogout a las dependencias
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-pink-50 text-pink-400 font-bold">Cargando panel de gestión... 🐾</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center bg-red-50 text-red-500 font-bold">{error}</div>;
@@ -103,11 +129,11 @@ export default function PanelGestion({ onLogout }) {
         <header className="flex justify-between items-center mb-10">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-              Gestión de Refugio <span className="text-2xl">✨</span>
+              Gestión de {nombreRefugio} <span className="text-2xl">✨</span>
             </h1>
             <p className="text-slate-500 font-medium mt-1">
-              Revisa las solicitudes y une familias. <span className="text-pink-400 ml-1 font-bold">({animales.length} mascotas registradas)</span>
-            </p>
+  Revisa las solicitudes y une familias. <span className="text-pink-400 ml-1 font-bold">({animales.length} mascotas en {refugios.length} refugios)</span>
+</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -138,7 +164,8 @@ export default function PanelGestion({ onLogout }) {
                 <div 
                   key={adoptante.id || adoptante.rut} 
                   onClick={() => setSeleccionado(adoptante)}
-                  className={`p-5 rounded-[2rem] border-2 cursor-pointer transition-all duration-300 bg-white ${seleccionado?.id === adoptante.id ? 'border-pink-300 shadow-[0_4px_15px_-3px_rgba(244,114,182,0.3)] transform scale-[1.02]' : 'border-transparent shadow-sm hover:border-pink-100'}`}
+                  /* CORRECCIÓN TAILWIND: rounded-4xl */
+                  className={`p-5 rounded-4xl border-2 cursor-pointer transition-all duration-300 bg-white ${seleccionado?.id === adoptante.id ? 'border-pink-300 shadow-[0_4px_15px_-3px_rgba(244,114,182,0.3)] transform scale-[1.02]' : 'border-transparent shadow-sm hover:border-pink-100'}`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <h3 className="font-extrabold text-slate-800 text-lg">{adoptante.nombre_completo || 'Sin Nombre'}</h3>
@@ -161,7 +188,8 @@ export default function PanelGestion({ onLogout }) {
             <section className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-xl shadow-sky-100/50 border-4 border-white relative overflow-hidden flex flex-col h-full min-h-[70vh]">
               
               {/* Tarjeta Superior Azul Celeste */}
-              <div className="bg-gradient-to-r from-sky-100 to-sky-50 rounded-[2rem] p-6 flex justify-between items-center border border-sky-100 mb-8">
+              {/* CORRECCIÓN TAILWIND: bg-linear-to-r y rounded-4xl */}
+              <div className="bg-linear-to-r from-sky-100 to-sky-50 rounded-4xl p-6 flex justify-between items-center border border-sky-100 mb-8">
                 <div className="flex items-center gap-5">
                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-sky-500 shadow-sm border border-sky-100">
                     {seleccionado?.nombre_completo ? seleccionado.nombre_completo.charAt(0).toUpperCase() : '?'}

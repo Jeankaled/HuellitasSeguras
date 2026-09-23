@@ -43,7 +43,6 @@ export default function Registro() {
 
     try {
       if (tipoCuenta === 'fundacion') {
-        // Lógica para Fundación (Requiere FormData por la imagen)
         const formData = new FormData();
         formData.append('nombre_organizacion', nombreOrg);
         formData.append('rut', rut);
@@ -55,21 +54,19 @@ export default function Registro() {
         formData.append('color_secundario', colorSecundario);
         if (logo) formData.append('logo', logo);
 
-        // await fetch('URL/fundaciones', { method: 'POST', body: formData });
         console.log('Datos de fundación (FormData):', Object.fromEntries(formData));
         alert('Fundación registrada. Pendiente de verificación.');
 
       } else {
-        // Lógica para Adoptante (JSON simple) ajustada
+        // CORRECCIÓN: Se ajusta al formato que espera el backend y a la ruta correcta
         const adoptanteData = {
-          nombre: nombreAdoptante,
-          apellido: apellidoAdoptante,
+          nombre_completo: `${nombreAdoptante} ${apellidoAdoptante}`,
           email: correo,
           password: password,
           telefono: telefono
         };
 
-        const respuesta = await fetch('http://localhost:3000/registro/adoptante', { 
+        const respuesta = await fetch('http://localhost:3000/adoptantes', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(adoptanteData) 
@@ -97,7 +94,6 @@ export default function Registro() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans text-slate-700">
       <div className="max-w-6xl w-full bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col lg:flex-row min-h-150">
         
-        {/* COLUMNA IZQUIERDA: Formulario */}
         <div className="w-full lg:w-3/5 p-8 lg:p-12 overflow-y-auto max-h-[90vh]">
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2">
@@ -109,7 +105,6 @@ export default function Registro() {
             </Link>
           </div>
 
-          {/* Selector de Tipo de Cuenta */}
           <div className="flex p-1 bg-slate-100 rounded-xl mb-8">
             <button 
               type="button"
@@ -136,8 +131,6 @@ export default function Registro() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            
-            {/* CAMPOS PARA ADOPTANTE */}
             {tipoCuenta === 'adoptante' && (
               <div className="animate-fadeIn">
                 <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">Tus Datos Personales</h2>
@@ -171,7 +164,6 @@ export default function Registro() {
               </div>
             )}
 
-            {/* CAMPOS PARA FUNDACIÓN */}
             {tipoCuenta === 'fundacion' && (
               <div className="animate-fadeIn space-y-8">
                 <div>
@@ -255,9 +247,7 @@ export default function Registro() {
           </form>
         </div>
 
-        {/* COLUMNA DERECHA: Dinámica según el tipo de cuenta */}
         <div className="hidden lg:flex w-2/5 bg-slate-100 p-8 flex-col items-center justify-center relative border-l border-slate-200">
-          
           {tipoCuenta === 'adoptante' ? (
             <div className="text-center flex flex-col items-center justify-center space-y-6 animate-fadeIn">
               <div className="text-8xl">🐶❤️🐱</div>
@@ -273,7 +263,6 @@ export default function Registro() {
                 <p className="text-xs text-slate-400">Así verán tu plataforma los usuarios</p>
               </div>
 
-              {/* Mockup de la App */}
               <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg flex overflow-hidden h-96 transform scale-95 border border-slate-100">
                 <div className="w-1/3 p-4 flex flex-col gap-4 text-white text-xs font-medium transition-colors" style={{ backgroundColor: colorPrincipal }}>
                   <div className="h-10 bg-white/20 rounded-lg flex items-center justify-center p-1">
