@@ -13,11 +13,15 @@ export default function PanelGestion({ onLogout }) {
   // Estado para manejar al postulante seleccionado en la "Bandeja de Entrada"
   const [seleccionado, setSeleccionado] = useState(null);
 
-  useEffect(() => {
+ useEffect(() => {
     const obtenerDatos = async () => {
       try {
         const token = localStorage.getItem('token');
+        
+        // 1. Si no hay token, limpieza profunda y expulsión
         if (!token) {
+          localStorage.removeItem('usuario');
+          if (typeof onLogout === 'function') onLogout();
           navigate('/login');
           return;
         }
@@ -27,34 +31,25 @@ export default function PanelGestion({ onLogout }) {
           'Authorization': `Bearer ${token}` 
         };
 
+        // Reemplaza tu bloque Promise.all por este:
         const [resAdoptantes, resAnimales] = await Promise.all([
-          fetch('http://localhost:3000/adoptantes', { headers }),
-          fetch('http://localhost:3000/animales', { headers })
+          fetch(`${import.meta.env.VITE_API_URL}/adoptantes`, { headers }),
+          fetch(`${import.meta.env.VITE_API_URL}/animales`, { headers })
         ]);
 
-        if (!resAdoptantes.ok || !resAnimales.ok) {
-          if (resAdoptantes.status === 401 || resAnimales.status === 401) {
-            localStorage.removeItem('token');
-            navigate('/login');
-            return;
-          }
-          throw new Error('Error al conectar con el servidor. Verifica tu sesión.');
-        }
+        // 2. Si el Token es rechazado (401), limpieza profunda y expulsión
+        // Dentro del useEffect de PanelGestion.jsx (cuando falla el token)
+        if (resAdoptantes.status === 401 || resAnimales.status === 401) {
+          if (typeof onLogout === 'function') onLogout();
+          return;
+        } 
 
         const datosAdoptantes = await resAdoptantes.json();
         const datosAnimales = await resAnimales.json();
 
-        console.log("Respuesta del Backend (Adoptantes):", datosAdoptantes);
-        console.log("Respuesta del Backend (Animales):", datosAnimales);
-
-        // CORRECCIÓN FRONTEND: Tolera arreglos directos o propiedades encapsuladas (data, datos, adoptantes, animales)
-        const listaAdoptantes = Array.isArray(datosAdoptantes)
-          ? datosAdoptantes
-          : (datosAdoptantes.data || datosAdoptantes.datos || datosAdoptantes.adoptantes || []);
-
-        const listaAnimales = Array.isArray(datosAnimales)
-          ? datosAnimales
-          : (datosAnimales.data || datosAnimales.datos || datosAnimales.animales || []);
+        // 3. Procesar datos (Se mantiene tu lógica original)
+        const listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.data || datosAdoptantes.datos || datosAdoptantes.adoptantes || []);
+        const listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.data || datosAnimales.datos || datosAnimales.animales || []);
 
         setAdoptantes(listaAdoptantes);
         setAnimales(listaAnimales);

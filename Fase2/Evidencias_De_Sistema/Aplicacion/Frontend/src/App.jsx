@@ -5,64 +5,48 @@ import PanelGestion from './pages/PanelGestion';
 import Registro from './pages/Registro';
 
 function App() {
-  // Estado que lee el token directamente desde el almacenamiento del navegador
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Guarda el token y actualiza el estado para dar paso al panel
+  // Actualiza el estado en memoria para dar paso al panel
   const handleLoginSuccess = (nuevoToken) => {
-    localStorage.setItem('token', nuevoToken);
     setToken(nuevoToken);
   };
 
-  // Cierra sesión eliminando el token del sistema
+  // Centraliza la limpieza profunda de la sesión
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
     setToken(null);
   };
 
   return (
     <Router>
       <Routes>
-        {/* Ruta pública: Si ya inició sesión, lo redirige automáticamente a /panel */}
+        {/* 1. La ruta raíz redirige lógicamente */}
+        <Route path="/" element={<Navigate to={token ? "/panel" : "/login"} replace />} />
+
+        {/* 2. Ruta explícita de Login (Esto resuelve el Error 404/Bucle) */}
         <Route 
-          path="/" 
-          element={
-            token ? (
-              <Navigate to="/panel" replace />
-            ) : (
-              <Login onLoginSuccess={handleLoginSuccess} />
-            )
-          } 
+          path="/login" 
+          element={token ? <Navigate to="/panel" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} 
         />
 
-        {/* Ruta de Registro pública */}
+        {/* 3. Ruta de Registro */}
         <Route 
           path="/registro" 
-          element={
-            token ? (
-              <Navigate to="/panel" replace />
-            ) : (
-              <Registro />
-            )
-          } 
+          element={token ? <Navigate to="/panel" replace /> : <Registro />} 
         />
         
-        {/* Ruta protegida: Solo accesible si existe un token activo */}
+        {/* 4. Ruta Protegida del Panel */}
         <Route 
           path="/panel" 
-          element={
-            token ? (
-              <PanelGestion onLogout={handleLogout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          } 
+          element={token ? <PanelGestion onLogout={handleLogout} /> : <Navigate to="/login" replace />} 
         />
         
-        {/* Captura cualquier ruta inexistente y redirige según el estado de sesión */}
+        {/* 5. Comodín: Captura rutas rotas */}
         <Route 
           path="*" 
-          element={<Navigate to={token ? "/panel" : "/"} replace />} 
+          element={<Navigate to={token ? "/panel" : "/login"} replace />} 
         />
       </Routes>
     </Router>

@@ -27,7 +27,9 @@ export default function Login({ onLoginSuccess, onNavigateToRegister }) {
     setLoading(true);
 
     try {
-      const respuesta = await fetch('http://localhost:3000/login', {
+
+
+      const respuesta = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,26 +45,19 @@ export default function Login({ onLoginSuccess, onNavigateToRegister }) {
 
       setSuccess('¡Inicio de sesión exitoso!');
 
+      // Guardamos el token y el usuario devueltos por el backend
       if (datos.token) {
         localStorage.setItem('token', datos.token);
-        localStorage.setItem('usuario', JSON.stringify(datos.usuario));
       }
-      if (typeof onLoginSuccess === 'function') {
-        onLoginSuccess(datos.usuario);
-      } else {
-        navigate('/panel');
-      }
-      
-      // Guardar el usuario/token si el backend lo devuelve
       if (datos.usuario) {
         localStorage.setItem('usuario', JSON.stringify(datos.usuario));
       }
 
-      // Si existe la función de éxito, la ejecutamos o redirigimos
+      // Redirección limpia (sin código duplicado)
       if (typeof onLoginSuccess === 'function') {
         onLoginSuccess(datos.usuario);
       } else {
-        navigate('/panel'); // Redirige al panel de gestión si usas rutas
+        navigate('/panel');
       }
 
     } catch (err) {
