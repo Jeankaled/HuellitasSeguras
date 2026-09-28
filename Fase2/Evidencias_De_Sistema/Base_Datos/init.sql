@@ -35,7 +35,9 @@ CREATE TABLE Animales (
   sexo VARCHAR(20),
   fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   estado VARCHAR(50) DEFAULT 'Disponible',
-  microchip VARCHAR(50) UNIQUE
+  microchip VARCHAR(50) UNIQUE,
+  foto varchar(255),
+  historia text
 );
 
 -- TABLA ADOPTANTES ACTUALIZADA (Añadimos password_hash para el login)

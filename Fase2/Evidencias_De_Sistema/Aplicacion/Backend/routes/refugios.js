@@ -5,38 +5,26 @@ const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcrypt');
 
-// 1. Configuración de almacenamiento (ya la tenías)
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'uploads/'),
     filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname)); 
+        cb(null, Date.now() + path.extname(file.originalname));
     }
 });
+const upload = multer({ storage: storage });
 
-// 2. NUEVO: Filtro para aceptar SOLO imágenes
-const fileFilter = (req, file, cb) => {
-    const tiposPermitidos = /jpeg|jpg|png|webp/;
-    const extensionValida = tiposPermitidos.test(path.extname(file.originalname).toLowerCase());
-    const mimetypeValido = tiposPermitidos.test(file.mimetype);
 
-    if (extensionValida && mimetypeValido) {
-        return cb(null, true);
-    } else {
-        cb(new Error('Formato de archivo no válido. Solo se permiten JPG, PNG y WEBP.'));
-    }
+const validarFormatoRUT = (rut) => {
+    
+    const rutRegex = /^[0-9]{7,8}-[0-9Kk]{1}$/;
+    return rutRegex.test(rut);
 };
 
-// 3. NUEVO: Agregar límite de peso (ej. 5 Megabytes) y el filtro
-const upload = multer({ 
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-    fileFilter: fileFilter
-});
 
-//CRUD REFUGIOS
 router.get('/', async (req, res) => {
     try {
-        const resultado = await db.query('SELECT id, rut, nombre_organizacion, direccion,  email_contacto, telefono FROM Refugios');
+        const resultado = await db.query('SELECT id, rut, nombre_organizacion, direccion, email_contacto, telefono FROM Refugios');
         res.json({
             mensaje: "Lista de refugios obtenida con éxito",
             cantidad: resultado.rowCount,
@@ -49,20 +37,23 @@ router.get('/', async (req, res) => {
 });
 
 
-// POST Mixto: JSON + Archivo
 router.post('/', upload.single('logo'), async (req, res) => {
     try {
-        // 1. Extraemos TODOS los datos del frontend (incluyendo password)
         const { rut, nombre_organizacion, direccion, email_contacto, telefono, color_principal, color_secundario, password } = req.body;
+        
         
         if (!password) {
             return res.status(400).json({ error: "La contraseña es obligatoria" });
         }
 
-        // 2. Construimos la URL pública local para el logo
+        if (!rut || !validarFormatoRUT(rut)) {
+            return res.status(400).json({ error: "Formato de RUT inválido. Por favor, use el formato 12345678-9 (sin puntos y con guion)." });
+        }
+
+    
         const logo_url = req.file ? `http://localhost:3000/uploads/${req.file.filename}` : null;
 
-        // 3. Crear el Refugio (La Organización) y rescatar su nuevo ID
+      
         const nuevoRefugio = await db.query(
             `INSERT INTO Refugios (rut, nombre_organizacion, direccion, email_contacto, telefono, logo_url, color_principal, color_secundario, estado_verificacion) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente') RETURNING id`,
@@ -71,7 +62,7 @@ router.post('/', upload.single('logo'), async (req, res) => {
 
         const refugio_id = nuevoRefugio.rows[0].id;
 
-        // 4. Encriptar contraseña y crear al Administrador principal (El Usuario)
+      
         const saltRounds = 10;
         const password_hash = await bcrypt.hash(password, saltRounds);
 
@@ -84,6 +75,12 @@ router.post('/', upload.single('logo'), async (req, res) => {
         res.status(201).json({ mensaje: "Refugio y administrador creados con éxito (Pendiente de aprobación)" });
     } catch (error) {
         console.error("Error al registrar fundación:", error);
+        
+      
+        if (error.code === '23505') {
+            return res.status(400).json({ error: "Este RUT o correo electrónico ya se encuentran registrados en la plataforma." });
+        }
+
         res.status(500).json({ error: "Hubo un problema al registrar la fundación" });
     }
 });
@@ -94,7 +91,6 @@ router.put('/:id', upload.single('logo'), async (req, res) => {
         const { id } = req.params;
         const { nombre_organizacion, direccion, email_contacto, telefono, color_principal, color_secundario } = req.body;
 
-        // Si hay archivo, construimos la URL pública. Si no hay, viaja como null.
         const logo_url = req.file ? `http://localhost:3000/uploads/${req.file.filename}` : null;
 
         const refugioActualizado = await db.query(
@@ -138,7 +134,6 @@ router.delete('/:id', async (req, res) => {
             mensaje: "¡Refugio eliminado correctamente del sistema!",
             datos: refugioEliminado.rows[0]
         });
-
     } catch (error) {
         console.error("Error al eliminar refugio:", error);
         res.status(500).json({ error: "Hubo un problema al eliminar en la base de datos" });
