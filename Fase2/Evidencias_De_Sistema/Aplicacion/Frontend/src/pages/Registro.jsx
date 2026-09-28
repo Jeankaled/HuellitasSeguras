@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import toast from 'react-hot-toast'; // Importación correcta del Toast
+import toast from 'react-hot-toast'; 
 
 export default function Registro() {
   const navigate = useNavigate();
@@ -11,7 +11,11 @@ export default function Registro() {
   // Datos Compartidos
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   // Datos Adoptante
   const [nombreAdoptante, setNombreAdoptante] = useState('');
@@ -20,6 +24,7 @@ export default function Registro() {
   // Datos Fundación
   const [nombreOrg, setNombreOrg] = useState('');
   const [rut, setRut] = useState('');
+  const [rutError, setRutError] = useState('');
   const [direccion, setDireccion] = useState('');
 
   // Personalización Fundación
@@ -29,6 +34,57 @@ export default function Registro() {
   const [colorSecundario, setColorSecundario] = useState('#93C5FD');
 
   const [loading, setLoading] = useState(false);
+
+  // Formateador de RUT automático
+  const handleRutChange = (e) => {
+    let value = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
+    
+    if (value.length === 0) {
+      setRut('');
+      setRutError('');
+      return;
+    }
+
+    // Limitar a un máximo de 9 caracteres alfanuméricos (8 dígitos + 1 verificador)
+    if (value.length > 9) {
+      value = value.slice(0, 9);
+    }
+
+    if (value.length > 1) {
+      let body = value.slice(0, -1);
+      let dv = value.slice(-1);
+      // Agregar puntos a los miles
+      body = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      setRut(`${body}-${dv}`);
+    } else {
+      setRut(value);
+    }
+    
+    setRutError(''); // Limpiar el error al escribir
+  };
+
+  // Validación Módulo 11 (Matemática estricta para RUT chileno)
+  const validateRUT = (rutInput) => {
+    if (!rutInput) return false;
+    const cleanRUT = rutInput.replace(/[^0-9K]/ig, '').toUpperCase();
+    if (cleanRUT.length < 8) return false;
+
+    const body = cleanRUT.slice(0, -1);
+    const dv = cleanRUT.slice(-1);
+    
+    let sum = 0;
+    let multiplier = 2;
+    
+    for (let i = body.length - 1; i >= 0; i--) {
+      sum += parseInt(body.charAt(i), 10) * multiplier;
+      multiplier = multiplier < 7 ? multiplier + 1 : 2;
+    }
+    
+    const expectedDv = 11 - (sum % 11);
+    const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : expectedDv.toString();
+    
+    return dv === calculatedDv;
+  };
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
@@ -40,6 +96,21 @@ export default function Registro() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validación estricta de contraseñas antes de procesar
+    if (password !== confirmPassword) {
+      setPasswordError('Las contraseñas no coinciden');
+      return;
+    }
+
+    // Validación estricta de RUT obligatoria ÚNICAMENTE para Fundaciones
+    if (tipoCuenta === 'fundacion') {
+      if (!validateRUT(rut)) {
+        setRutError('RUT inválido. Verifica el formato y dígito verificador.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     // 1. Iniciamos una notificación visual de carga
@@ -50,7 +121,7 @@ export default function Registro() {
         const formData = new FormData();
         formData.append('nombre_organizacion', nombreOrg);
         formData.append('rut', rut);
-        formData.append('email_contacto', correo); // Corregido: Match con el backend
+        formData.append('email_contacto', correo);
         formData.append('password', password);
         formData.append('telefono', telefono);
         formData.append('direccion', direccion);
@@ -58,7 +129,6 @@ export default function Registro() {
         formData.append('color_secundario', colorSecundario);
         if (logo) formData.append('logo', logo);
 
-        // Uso de variable de entorno VITE_API_URL
         const respuesta = await fetch(`${import.meta.env.VITE_API_URL}/refugios`, { 
           method: 'POST', 
           body: formData 
@@ -75,8 +145,7 @@ export default function Registro() {
 
       } else {
         const adoptanteData = {
-          nombre: nombreAdoptante,
-          apellido: apellidoAdoptante,
+          nombre_completo: `${nombreAdoptante} ${apellidoAdoptante}`,
           email: correo,
           password: password,
           telefono: telefono
@@ -116,7 +185,6 @@ export default function Registro() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans text-slate-700">
       <div className="max-w-6xl w-full bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col lg:flex-row min-h-150">
         
-        {/* COLUMNA IZQUIERDA: Formulario */}
         <div className="w-full lg:w-3/5 p-8 lg:p-12 overflow-y-auto max-h-[90vh]">
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2">
@@ -128,11 +196,10 @@ export default function Registro() {
             </Link>
           </div>
 
-          {/* Selector de Tipo de Cuenta */}
           <div className="flex p-1 bg-slate-100 rounded-xl mb-8">
             <button 
               type="button"
-              onClick={() => setTipoCuenta('adoptante')}
+              onClick={() => { setTipoCuenta('adoptante'); setPasswordError(''); setRutError(''); }}
               className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
                 tipoCuenta === 'adoptante' 
                   ? 'bg-white shadow-sm text-pink-500' 
@@ -143,7 +210,7 @@ export default function Registro() {
             </button>
             <button 
               type="button"
-              onClick={() => setTipoCuenta('fundacion')}
+              onClick={() => { setTipoCuenta('fundacion'); setPasswordError(''); setRutError(''); }}
               className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
                 tipoCuenta === 'fundacion' 
                   ? 'bg-white shadow-sm text-pink-500' 
@@ -155,8 +222,6 @@ export default function Registro() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            
-            {/* CAMPOS PARA ADOPTANTE */}
             {tipoCuenta === 'adoptante' && (
               <div className="animate-fadeIn">
                 <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">Tus Datos Personales</h2>
@@ -176,21 +241,63 @@ export default function Registro() {
                     value={correo} onChange={(e) => setCorreo(e.target.value)}
                     className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2" required
                   />
-                  <input 
-                    type="password" placeholder="🔒 Contraseña" 
-                    value={password} onChange={(e) => setPassword(e.target.value)}
-                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
-                  />
+                  
+                  {/* Contraseña Adoptante con Ojo */}
+                  <div className="relative w-full">
+                    <input 
+                      type={showPassword ? "text" : "password"} placeholder="🔒 Contraseña" 
+                      value={password} onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+                      className={`w-full p-3 border ${passwordError ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-pink-300'} rounded-xl outline-none text-sm`} required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-pink-400 focus:outline-none transition-colors"
+                    >
+                      {showPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Confirmar Contraseña Adoptante con Ojo */}
+                  <div className="relative w-full">
+                    <input 
+                      type={showConfirmPassword ? "text" : "password"} placeholder="🔒 Confirmar Contraseña" 
+                      value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
+                      className={`w-full p-3 border ${passwordError ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-pink-300'} rounded-xl outline-none text-sm`} required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-pink-400 focus:outline-none transition-colors"
+                    >
+                      {showConfirmPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Mensaje de error de contraseñas */}
+                  {passwordError && (
+                    <div className="md:col-span-2 -mt-2">
+                      <p className="text-red-500 text-xs ml-1 font-medium">{passwordError}</p>
+                    </div>
+                  )}
+
                   <input 
                     type="text" placeholder="📱 Teléfono (Opcional)" 
                     value={telefono} onChange={(e) => setTelefono(e.target.value)}
-                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm"
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2"
                   />
                 </div>
               </div>
             )}
 
-            {/* CAMPOS PARA FUNDACIÓN */}
             {tipoCuenta === 'fundacion' && (
               <div className="animate-fadeIn space-y-8">
                 <div>
@@ -201,21 +308,72 @@ export default function Registro() {
                       value={nombreOrg} onChange={(e) => setNombreOrg(e.target.value)}
                       className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
                     />
-                    <input 
-                      type="text" placeholder="📄 RUT Organización" 
-                      value={rut} onChange={(e) => setRut(e.target.value)}
-                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
-                    />
+                    
+                    {/* Campo RUT Formateado con Validación (Obligatorio únicamente para Fundación) */}
+                    <div className="w-full">
+                      <input 
+                        type="text" placeholder="📄 RUT Organización" 
+                        value={rut} onChange={handleRutChange}
+                        className={`w-full p-3 border ${rutError ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-pink-300'} rounded-xl outline-none text-sm transition-colors`} required
+                      />
+                      {rutError && (
+                        <p className="text-red-500 text-xs ml-1 mt-1 font-medium">{rutError}</p>
+                      )}
+                    </div>
+
                     <input 
                       type="email" placeholder="✉️ Correo del Administrador" 
                       value={correo} onChange={(e) => setCorreo(e.target.value)}
-                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
+                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2" required
                     />
-                    <input 
-                      type="password" placeholder="🔒 Contraseña Segura" 
-                      value={password} onChange={(e) => setPassword(e.target.value)}
-                      className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
-                    />
+                    
+                    {/* Contraseña Fundación con Ojo */}
+                    <div className="relative w-full">
+                      <input 
+                        type={showPassword ? "text" : "password"} placeholder="🔒 Contraseña Segura" 
+                        value={password} onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+                        className={`w-full p-3 border ${passwordError ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-pink-300'} rounded-xl outline-none text-sm`} required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-pink-400 focus:outline-none transition-colors"
+                      >
+                        {showPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Confirmar Contraseña Fundación con Ojo */}
+                    <div className="relative w-full">
+                      <input 
+                        type={showConfirmPassword ? "text" : "password"} placeholder="🔒 Confirmar Contraseña" 
+                        value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
+                        className={`w-full p-3 border ${passwordError ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-pink-300'} rounded-xl outline-none text-sm`} required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-pink-400 focus:outline-none transition-colors"
+                      >
+                        {showConfirmPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Mensaje de error de contraseñas */}
+                    {passwordError && (
+                      <div className="md:col-span-2 -mt-2">
+                        <p className="text-red-500 text-xs ml-1 font-medium">{passwordError}</p>
+                      </div>
+                    )}
+
                     <input 
                       type="text" placeholder="📞 Teléfono de Contacto" 
                       value={telefono} onChange={(e) => setTelefono(e.target.value)}
@@ -284,9 +442,7 @@ export default function Registro() {
           </form>
         </div>
 
-        {/* COLUMNA DERECHA: Dinámica según el tipo de cuenta */}
         <div className="hidden lg:flex w-2/5 bg-slate-100 p-8 flex-col items-center justify-center relative border-l border-slate-200">
-          
           {tipoCuenta === 'adoptante' ? (
             <div className="text-center flex flex-col items-center justify-center space-y-6 animate-fadeIn">
               <div className="text-8xl">🐶❤️🐱</div>
@@ -302,7 +458,6 @@ export default function Registro() {
                 <p className="text-xs text-slate-400">Así verán tu plataforma los usuarios</p>
               </div>
 
-              {/* Mockup de la App */}
               <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg flex overflow-hidden h-96 transform scale-95 border border-slate-100">
                 <div className="w-1/3 p-4 flex flex-col gap-4 text-white text-xs font-medium transition-colors" style={{ backgroundColor: colorPrincipal }}>
                   <div className="h-10 bg-white/20 rounded-lg flex items-center justify-center p-1">
