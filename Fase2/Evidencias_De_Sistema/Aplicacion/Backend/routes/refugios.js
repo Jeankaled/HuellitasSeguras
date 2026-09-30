@@ -5,7 +5,6 @@ const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcrypt');
 
-
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'uploads/'),
     filename: (req, file, cb) => {
@@ -14,13 +13,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-
 const validarFormatoRUT = (rut) => {
-    
-    const rutRegex = /^[0-9]{7,8}-[0-9Kk]{1}$/;
+    const rutRegex = /^[0-9]{1,2}(\.?[0-9]{3}){2}-[0-9Kk]{1}$/;
     return rutRegex.test(rut);
 };
-
 
 router.get('/', async (req, res) => {
     try {
@@ -36,47 +32,44 @@ router.get('/', async (req, res) => {
     }
 });
 
-
 router.post('/', upload.single('logo'), async (req, res) => {
     try {
         const { rut, nombre_organizacion, direccion, email_contacto, telefono, color_principal, color_secundario, password } = req.body;
-        
         
         if (!password) {
             return res.status(400).json({ error: "La contraseña es obligatoria" });
         }
 
         if (!rut || !validarFormatoRUT(rut)) {
-            return res.status(400).json({ error: "Formato de RUT inválido. Por favor, use el formato 12345678-9 (sin puntos y con guion)." });
+            return res.status(400).json({ error: "Formato de RUT inválido. Por favor, use el formato 12.345.678-9 o 12345678-9." });
         }
 
-    
+        const rutLimpio = rut.replace(/\./g, '');
+
         const logo_url = req.file ? `http://localhost:3000/uploads/${req.file.filename}` : null;
 
-      
         const nuevoRefugio = await db.query(
             `INSERT INTO Refugios (rut, nombre_organizacion, direccion, email_contacto, telefono, logo_url, color_principal, color_secundario, estado_verificacion) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente') RETURNING id`,
-            [rut, nombre_organizacion, direccion, email_contacto, telefono, logo_url, color_principal, color_secundario]
+            [rutLimpio, nombre_organizacion, direccion, email_contacto, telefono, logo_url, color_principal, color_secundario]
         );
 
         const refugio_id = nuevoRefugio.rows[0].id;
 
-      
         const saltRounds = 10;
         const password_hash = await bcrypt.hash(password, saltRounds);
 
+        // Inyectamos rutLimpio en lugar de rut para el administrador
         await db.query(
             `INSERT INTO Usuarios (refugio_id, rut, nombre_completo, email, password_hash, rol) 
              VALUES ($1, $2, $3, $4, $5, 'Administrador')`,
-            [refugio_id, rut, `Admin ${nombre_organizacion}`, email_contacto, password_hash]
+            [refugio_id, rutLimpio, `Admin ${nombre_organizacion}`, email_contacto, password_hash]
         );
 
         res.status(201).json({ mensaje: "Refugio y administrador creados con éxito (Pendiente de aprobación)" });
     } catch (error) {
         console.error("Error al registrar fundación:", error);
         
-      
         if (error.code === '23505') {
             return res.status(400).json({ error: "Este RUT o correo electrónico ya se encuentran registrados en la plataforma." });
         }
@@ -84,7 +77,6 @@ router.post('/', upload.single('logo'), async (req, res) => {
         res.status(500).json({ error: "Hubo un problema al registrar la fundación" });
     }
 });
-
 
 router.put('/:id', upload.single('logo'), async (req, res) => {
     try {
@@ -115,7 +107,6 @@ router.put('/:id', upload.single('logo'), async (req, res) => {
         res.status(500).json({ error: "Hubo un problema al actualizar la base de datos" });
     }
 });
-
 
 router.delete('/:id', async (req, res) => {
     try {

@@ -5,6 +5,12 @@ const db = require('../db');
 const bcrypt = require('bcrypt');
 const verificarToken = require('../middlewares/verificarToken');
 
+// Función para validar formato RUT Chileno (Acepta 12.345.678-9 y 12345678-9)
+const validarFormatoRUT = (rut) => {
+    const rutRegex = /^[0-9]{1,2}(\.?[0-9]{3}){2}-[0-9Kk]{1}$/;
+    return rutRegex.test(rut);
+};
+
 // OBTENER TODOS (Filtrados estrictamente por el refugio activo)
 router.get('/', verificarToken, async (req, res) => {
     try {
@@ -47,13 +53,19 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: "Faltan campos obligatorios para crear la cuenta básica" });
         }
 
+        if (rut && !validarFormatoRUT(rut)) {
+            return res.status(400).json({ error: "Formato de RUT inválido. Por favor, use el formato 12.345.678-9 o 12345678-9." });
+        }
+
+        const rutLimpio = rut ? rut.replace(/\./g, '') : null;
+
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
 
         const nuevoAdoptante = await db.query(
             `INSERT INTO Adoptantes (rut, nombre_completo, email, password_hash, telefono, direccion) 
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, nombre_completo, email`,
-            [rut || null, nombre_completo, email, password_hash, telefono || null, direccion || null]
+            [rutLimpio, nombre_completo, email, password_hash, telefono || null, direccion || null]
         );
 
         res.status(201).json({
