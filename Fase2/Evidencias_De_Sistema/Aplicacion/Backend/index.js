@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors()); 
 app.use(express.json()); 
-app.use('/uploads', express.static('uploads')); // Expone la carpeta de imágenes al frontend
+app.use('/uploads', express.static('uploads')); 
 
 
 // 1. IMPORTAR MIDDLEWARE DE SEGURIDAD
@@ -42,7 +42,6 @@ app.use('/refugios', rutasRefugios);
 app.use('/adoptantes', rutasAdoptantes);
 
 // Rutas Privadas (Protegidas por el Middleware)
-
 app.use('/fichas-clinicas', verificarToken, rutasFichas);
 app.use('/contratos', verificarToken, rutasContratos);
 app.use('/animales', verificarToken, rutasAnimales);
@@ -50,7 +49,6 @@ app.use('/animales', verificarToken, rutasAnimales);
 app.use('/usuarios', verificarToken, rutasUsuarios);
 
 
-// 4. ENCENDER EL SERVIDOR
 app.listen(PORT, () => {
     console.log(` Servidor ejecutándose en http://localhost:${PORT}`);
 });

@@ -3,7 +3,6 @@ const router = express.Router();
 const db = require('../db');
 
 
-//CRUD USUARIOS
 router.post('/', async (req, res) => {
     try {
         const { refugio_id, rut, nombre_completo, email, password, rol } = req.body;
