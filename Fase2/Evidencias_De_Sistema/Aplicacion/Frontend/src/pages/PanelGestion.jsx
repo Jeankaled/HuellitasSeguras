@@ -4,17 +4,17 @@ import { Cat, Plus, Edit, X, Upload } from 'lucide-react';
 
 export default function PanelGestion({ onLogout }) {
   const navigate = useNavigate();
-  
+
   const [adoptantes, setAdoptantes] = useState([]);
-  const [animales, setAnimales] = useState([]); 
-  const [, setRefugios] = useState([]); 
+  const [animales, setAnimales] = useState([]);
+  const [, setRefugios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   // Estados de Interfaz
   const [vistaActiva, setVistaActiva] = useState('bandeja'); // 'bandeja' o 'catalogo'
   const [seleccionado, setSeleccionado] = useState(null); // Para adoptantes
-  const [animalSeleccionado, setAnimalSeleccionado] = useState(null); // Para el modal de detalles del catálogo
+  const [animalSeleccionado, setAnimalSeleccionado] = useState(null); // Para modal de detalles
   const [fichaClinica, setFichaClinica] = useState(null);
   const [cargandoFicha, setCargandoFicha] = useState(false);
 
@@ -30,22 +30,35 @@ export default function PanelGestion({ onLogout }) {
   const [formAnimal, setFormAnimal] = useState({
     nombre: '',
     especie: 'Perro',
+    raza: '',
     sexo: 'Macho',
     edad: '',
     historia: '',
     estado: 'En adopción',
+    microchip: '',
     foto_url: ''
   });
 
   const [tema, setTema] = useState({ principal: '#94a3b8', secundario: '#cbd5e1' });
   const [nombreOrganizacion, setNombreOrganizacion] = useState('Gestión de Refugio');
 
+  // Función auxiliar para formatear la URL de la imagen que viene del backend
+  const obtenerUrlImagen = (url) => {
+    if (!url) return 'https://via.placeholder.com/300x200?text=Sin+Foto';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+      return url;
+    }
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const serverBase = apiBase.replace(/\/api\/?$/, '');
+    return `${serverBase}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
   useEffect(() => {
     const obtenerDatos = async () => {
       try {
         const token = localStorage.getItem('token');
         const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
-        
+
         if (!token) {
           localStorage.removeItem('usuario');
           if (typeof onLogout === 'function') onLogout();
@@ -65,32 +78,32 @@ export default function PanelGestion({ onLogout }) {
 
         const headers = {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         };
 
         const [resAdoptantes, resAnimales, resRefugios] = await Promise.all([
           fetch(`${import.meta.env.VITE_API_URL}/adoptantes`, { headers }),
           fetch(`${import.meta.env.VITE_API_URL}/animales`, { headers }),
-          fetch(`${import.meta.env.VITE_API_URL}/refugios`, { headers }) 
+          fetch(`${import.meta.env.VITE_API_URL}/refugios`, { headers })
         ]);
 
         if (resAdoptantes.status === 401 || resAnimales.status === 401) {
           if (typeof onLogout === 'function') onLogout();
           return;
-        } 
+        }
 
         const datosAdoptantes = await resAdoptantes.json();
         const datosAnimales = await resAnimales.json();
-        const datosRefugios = await resRefugios.json(); 
+        const datosRefugios = await resRefugios.json();
 
-        const listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.data || datosAdoptantes.datos || datosAdoptantes.adoptantes || []);
-        const listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.data || datosAnimales.datos || datosAnimales.animales || []);
-        const listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.data || datosRefugios.datos || datosRefugios.refugios || []); 
+        const listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.datos || datosAdoptantes.data || datosAdoptantes.adoptantes || []);
+        const listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.datos || datosAnimales.data || datosAnimales.animales || []);
+        const listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.datos || datosRefugios.data || datosRefugios.refugios || []);
 
         setAdoptantes(listaAdoptantes);
         setAnimales(listaAnimales);
-        setRefugios(listaRefugios); 
-        
+        setRefugios(listaRefugios);
+
         if (usuarioGuardado && listaRefugios.length > 0) {
           const miRefugio = listaRefugios.find(r => r.id === usuarioGuardado.id || r.usuario_id === usuarioGuardado.id);
           const nombreAmostrar = miRefugio?.nombre_organizacion || miRefugio?.nombre || usuarioGuardado.nombre || 'Refugio';
@@ -139,10 +152,12 @@ export default function PanelGestion({ onLogout }) {
     setFormAnimal({
       nombre: '',
       especie: 'Perro',
+      raza: '',
       sexo: 'Macho',
       edad: '',
       historia: '',
       estado: 'En adopción',
+      microchip: '',
       foto_url: ''
     });
     setArchivoFoto(null);
@@ -155,17 +170,20 @@ export default function PanelGestion({ onLogout }) {
     if (e) e.stopPropagation();
     setModoModal('editar');
     setAnimalEditandoId(animal.id);
+    const fotoActual = animal.foto || animal.foto_url || '';
     setFormAnimal({
       nombre: animal.nombre || '',
       especie: animal.especie || 'Perro',
+      raza: animal.raza || '',
       sexo: animal.sexo || 'Macho',
       edad: animal.edad || '',
       historia: animal.historia || '',
       estado: animal.estado || 'En adopción',
-      foto_url: animal.foto_url || ''
+      microchip: animal.microchip || '',
+      foto_url: fotoActual
     });
     setArchivoFoto(null);
-    setVistaPreviaFoto(animal.foto_url || '');
+    setVistaPreviaFoto(obtenerUrlImagen(fotoActual));
     setErrorForm('');
     setModalFormAbierto(true);
   };
@@ -193,45 +211,43 @@ export default function PanelGestion({ onLogout }) {
     try {
       const token = localStorage.getItem('token');
       const esCrear = modoModal === 'crear';
-      const endpoint = esCrear 
+      const endpoint = esCrear
         ? `${import.meta.env.VITE_API_URL}/animales`
         : `${import.meta.env.VITE_API_URL}/animales/${animalEditandoId}`;
       const metodo = esCrear ? 'POST' : 'PUT';
 
-      let bodyPayload;
-      let headersPayload = { 'Authorization': `Bearer ${token}` };
+      // Construcción exacta de FormData para cumplir con la ruta req.body de Express
+      const formData = new FormData();
+      formData.append('nombre', formAnimal.nombre || '');
+      formData.append('especie', formAnimal.especie || 'Perro');
+      formData.append('raza', formAnimal.raza || '');
+      formData.append('sexo', formAnimal.sexo || 'Macho');
+      formData.append('estado', formAnimal.estado || 'En adopción');
+      formData.append('microchip', formAnimal.microchip || '');
+      formData.append('historia', formAnimal.historia || '');
+      formData.append('edad', formAnimal.edad || '');
 
-      // Si el usuario subió una nueva foto, enviamos FormData; si no, JSON
+      // Campo 'foto' esperado por multer en el backend
       if (archivoFoto) {
-        const formData = new FormData();
-        formData.append('nombre', formAnimal.nombre);
-        formData.append('especie', formAnimal.especie);
-        formData.append('sexo', formAnimal.sexo);
-        formData.append('edad', formAnimal.edad);
-        formData.append('historia', formAnimal.historia);
-        formData.append('estado', formAnimal.estado);
         formData.append('foto', archivoFoto);
-        bodyPayload = formData;
-      } else {
-        headersPayload['Content-Type'] = 'application/json';
-        bodyPayload = JSON.stringify(formAnimal);
       }
 
       const res = await fetch(endpoint, {
         method: metodo,
-        headers: headersPayload,
-        body: bodyPayload
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
       });
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.mensaje || errorData.message || 'Error al procesar la solicitud');
+        throw new Error(errorData.error || errorData.mensaje || errorData.message || 'Error al procesar la solicitud');
       }
 
       const dataRespuesta = await res.json();
-      const animalGuardado = dataRespuesta.data || dataRespuesta.animal || dataRespuesta;
+      const animalGuardado = dataRespuesta.datos || dataRespuesta.data || dataRespuesta.animal || dataRespuesta;
 
-      // Asegurar que el objeto conserve propiedades locales si la API retorna respuesta parcial
       const animalActualizado = {
         ...(modoModal === 'editar' ? animales.find(a => a.id === animalEditandoId) : {}),
         ...formAnimal,
@@ -249,7 +265,7 @@ export default function PanelGestion({ onLogout }) {
 
       cerrarModalForm();
     } catch (err) {
-      setErrorForm(err.message || 'Ocurrió un error inesperado.');
+      setErrorForm(err.message || 'Ocurrió un error inesperado al guardar.');
     } finally {
       setGuardandoAnimal(false);
     }
@@ -270,7 +286,6 @@ export default function PanelGestion({ onLogout }) {
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
         </div>
         <nav className="flex flex-col gap-6 text-slate-400 h-full">
-          {/* Botón Bandeja */}
           <button 
             onClick={() => setVistaActiva('bandeja')}
             className={`p-3 rounded-2xl transition shadow-sm ${vistaActiva === 'bandeja' ? 'text-white' : 'hover:bg-slate-100'}`}
@@ -280,7 +295,6 @@ export default function PanelGestion({ onLogout }) {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
           </button>
           
-          {/* Botón Catálogo de Mascotas */}
           <button 
             onClick={() => setVistaActiva('catalogo')}
             className={`p-3 rounded-2xl transition shadow-sm ${vistaActiva === 'catalogo' ? 'text-white' : 'hover:bg-slate-100'}`}
@@ -292,7 +306,6 @@ export default function PanelGestion({ onLogout }) {
 
           <button className="p-3 hover:bg-slate-100 rounded-2xl transition"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg></button>
           
-          {/* BOTÓN CERRAR SESIÓN */}
           <div className="mt-auto pt-8">
             <button 
               onClick={onLogout}
@@ -321,7 +334,6 @@ export default function PanelGestion({ onLogout }) {
             </p>
           </div>
           
-          {/* BOTÓN REGISTRAR MASCOTA (VISIBLE EN EL ENCABEZADO) */}
           {vistaActiva === 'catalogo' && (
             <button 
               onClick={abrirModalCrear}
@@ -333,7 +345,6 @@ export default function PanelGestion({ onLogout }) {
           )}
         </header>
 
-        {/* RENDERIZADO CONDICIONAL DE VISTAS */}
         {vistaActiva === 'bandeja' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 items-start">
             <section className="lg:col-span-4 flex flex-col gap-4">
@@ -445,7 +456,7 @@ export default function PanelGestion({ onLogout }) {
             {animales.map((animal) => (
               <div key={animal.id} className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex flex-col hover:shadow-lg transition-all duration-300 relative group">
                 
-                {/* BOTÓN EDITAR RÁPIDO EN LA TARJETA */}
+                {/* BOTÓN EDITAR EN LA TARJETA */}
                 <button
                   onClick={(e) => abrirModalEditar(animal, e)}
                   className="absolute top-7 right-7 p-2.5 bg-white/90 hover:bg-white text-slate-600 rounded-full shadow-md transition transform hover:scale-110 z-10"
@@ -454,11 +465,11 @@ export default function PanelGestion({ onLogout }) {
                   <Edit className="w-4 h-4 text-slate-700" />
                 </button>
 
-                {/* Imagen (Placeholder dinámico o URL real) */}
+                {/* Imagen (se mapea tanto foto como foto_url) */}
                 <div 
                   className="h-48 w-full rounded-3xl mb-4 bg-cover bg-center transition-transform duration-300 group-hover:scale-[1.01]" 
                   style={{ 
-                    backgroundImage: `url(${animal.foto_url || 'https://via.placeholder.com/300x200?text=Sin+Foto'})`,
+                    backgroundImage: `url(${obtenerUrlImagen(animal.foto || animal.foto_url)})`,
                     backgroundColor: `${tema.secundario}20` 
                   }}
                 />
@@ -530,7 +541,7 @@ export default function PanelGestion({ onLogout }) {
               <div className="md:w-2/5 p-8 border-r border-slate-100" style={{ backgroundColor: `${tema.secundario}10` }}>
                 <div 
                   className="w-full h-64 rounded-3xl bg-cover bg-center mb-6 shadow-sm border-4 border-white"
-                  style={{ backgroundImage: `url(${animalSeleccionado.foto_url || 'https://via.placeholder.com/300x300?text=Sin+Foto'})` }}
+                  style={{ backgroundImage: `url(${obtenerUrlImagen(animalSeleccionado.foto || animalSeleccionado.foto_url)})` }}
                 />
                 <h2 className="text-3xl font-extrabold text-slate-800 mb-2">{animalSeleccionado.nombre}</h2>
                 <div className="flex flex-wrap gap-2 mb-6">
@@ -550,9 +561,9 @@ export default function PanelGestion({ onLogout }) {
 
               {/* Columna Derecha: Ficha Médica */}
               <div className="md:w-3/5 p-8 bg-white">
-               <h3 className="text-xl font-extrabold text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2 pr-28 md:pr-36 whitespace-normal flex-wrap">
+                <h3 className="text-xl font-extrabold text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2 pr-28 md:pr-36 whitespace-normal flex-wrap">
                   <span style={{ color: tema.principal }}>⚕️</span> Ficha Médica e Historial Veterinario
-              </h3>
+                </h3>
 
                 {cargandoFicha ? (
                   <div className="flex items-center justify-center h-40 text-slate-400 font-medium">Cargando ficha...</div>
@@ -568,35 +579,20 @@ export default function PanelGestion({ onLogout }) {
                       <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
                         <p className="text-xs text-slate-400 font-bold uppercase mb-1">Vacunas</p>
                         <p className="font-bold text-slate-700 flex items-center gap-2">
-                          {fichaClinica.vacunas_al_dia ? '✅ Al día' : '⚠️ Pendientes'}
+                          {fichaClinica.vacunas_al_dia ? '✅ Al día' : '❌ Incompletas'}
                         </p>
                       </div>
+                    </div>
+                    {fichaClinica.observaciones && (
                       <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
-                        <p className="text-xs text-slate-400 font-bold uppercase mb-1">Peso Registrado</p>
-                        <p className="font-bold text-slate-700">{fichaClinica.peso_kg ? `${fichaClinica.peso_kg} kg` : 'No registrado'}</p>
+                        <p className="text-xs text-slate-400 font-bold uppercase mb-1">Observaciones</p>
+                        <p className="text-sm text-slate-600 font-medium">{fichaClinica.observaciones}</p>
                       </div>
-                      <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
-                        <p className="text-xs text-slate-400 font-bold uppercase mb-1">Microchip</p>
-                        <p className="font-bold text-slate-700">{animalSeleccionado.microchip || 'No posee'}</p>
-                      </div>
-                    </div>
-
-                    <div className="p-5 rounded-2xl border border-blue-50 bg-blue-50/50">
-                      <p className="text-xs text-blue-400 font-bold uppercase mb-2">Diagnóstico de Ingreso</p>
-                      <p className="text-sm font-medium text-slate-600">{fichaClinica.diagnostico_ingreso || 'Sin diagnóstico registrado.'}</p>
-                    </div>
-
-                    <div className="p-5 rounded-2xl border border-amber-50 bg-amber-50/50">
-                      <p className="text-xs text-amber-400 font-bold uppercase mb-2">Tratamientos / Observaciones Médicas</p>
-                      <p className="text-sm font-medium text-slate-600 whitespace-pre-wrap">{fichaClinica.observaciones_medicas || 'Sin observaciones recientes.'}</p>
-                    </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-48 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center p-6">
-                    <p className="text-slate-500 font-medium mb-2">No se encontró una ficha médica para esta mascota.</p>
-                    <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition">
-                      + Crear Ficha Clínica
-                    </button>
+                  <div className="p-6 bg-slate-50 rounded-2xl text-center text-slate-400 font-medium">
+                    No hay ficha clínica registrada para este animal.
                   </div>
                 )}
               </div>
@@ -605,97 +601,93 @@ export default function PanelGestion({ onLogout }) {
         </div>
       )}
 
-      {/* MODAL FORMULARIO DE CREAR / EDITAR MASCOTA */}
+      {/* MODAL FORMULARIO REGISTRO / EDICIÓN MASCOTA */}
       {modalFormAbierto && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl p-8 relative my-8">
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl p-8 relative overflow-y-auto max-h-[90vh]">
             
-            <button 
-              onClick={cerrarModalForm}
-              className="absolute top-6 right-6 p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
               <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
-                <span style={{ color: tema.principal }}>🐾</span>
-                {modoModal === 'crear' ? 'Registrar Nueva Mascota' : 'Editar Datos de Mascota'}
+                <span>🐾</span> {modoModal === 'crear' ? 'Registrar Nueva Mascota' : 'Editar Datos de Mascota'}
               </h2>
-              <p className="text-sm text-slate-500 font-medium mt-1">
-                {modoModal === 'crear' ? 'Ingresa los datos del animal para agregarlo al catálogo.' : 'Modifica los campos necesarios.'}
-              </p>
+              <button 
+                onClick={cerrarModalForm}
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
+            
+            <p className="text-slate-400 font-medium text-sm mb-6">
+              {modoModal === 'crear' ? 'Completa los campos para registrar una nueva mascota.' : 'Modifica los campos necesarios.'}
+            </p>
 
             {errorForm && (
-              <div className="mb-4 p-4 rounded-2xl bg-red-50 text-red-600 font-bold text-sm border border-red-100">
+              <div className="bg-red-50 text-red-500 border border-red-100 rounded-2xl p-4 mb-6 text-sm font-bold flex items-center gap-2">
                 ⚠️ {errorForm}
               </div>
             )}
 
-            <form onSubmit={handleSubmitAnimal} className="space-y-4">
+            <form onSubmit={handleSubmitAnimal} className="space-y-5">
               
-              {/* Nombre */}
+              {/* NOMBRE */}
               <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Nombre</label>
+                <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">NOMBRE</label>
                 <input 
-                  type="text"
+                  type="text" 
                   required
+                  placeholder="Ej: Toby"
                   value={formAnimal.nombre}
                   onChange={(e) => setFormAnimal({ ...formAnimal, nombre: e.target.value })}
-                  placeholder="Ej: Pelusa"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 transition text-sm font-medium"
-                  style={{ focusRingColor: tema.principal }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
                 />
               </div>
 
-              {/* Especie y Sexo */}
+              {/* ESPECIE Y SEXO */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Especie</label>
+                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">ESPECIE</label>
                   <select 
                     value={formAnimal.especie}
                     onChange={(e) => setFormAnimal({ ...formAnimal, especie: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 transition text-sm font-medium bg-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
                   >
                     <option value="Perro">🐶 Perro</option>
                     <option value="Gato">🐱 Gato</option>
+                    <option value="Otro">🐾 Otro</option>
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Sexo</label>
+                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">SEXO</label>
                   <select 
                     value={formAnimal.sexo}
                     onChange={(e) => setFormAnimal({ ...formAnimal, sexo: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 transition text-sm font-medium bg-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
                   >
-                    <option value="Macho">♂️ Macho</option>
-                    <option value="Hembra">♀️ Hembra</option>
+                    <option value="Macho">♂ Macho</option>
+                    <option value="Hembra">♀ Hembra</option>
                   </select>
                 </div>
               </div>
 
-              {/* Edad y Estado */}
+              {/* EDAD Y ESTADO INICIAL */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Edad / F. Nacimiento Estimada</label>
+                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">EDAD / F. NACIMIENTO ESTIMADA</label>
                   <input 
-                    type="text"
-                    required
+                    type="text" 
+                    placeholder="Ej: 2 años"
                     value={formAnimal.edad}
                     onChange={(e) => setFormAnimal({ ...formAnimal, edad: e.target.value })}
-                    placeholder="Ej: 2 años / 6 meses"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 transition text-sm font-medium"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Estado Inicial</label>
+                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">ESTADO INICIAL</label>
                   <select 
                     value={formAnimal.estado}
                     onChange={(e) => setFormAnimal({ ...formAnimal, estado: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 transition text-sm font-medium bg-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
                   >
                     <option value="En adopción">En adopción</option>
                     <option value="En tratamiento">En tratamiento</option>
@@ -704,57 +696,62 @@ export default function PanelGestion({ onLogout }) {
                 </div>
               </div>
 
-              {/* Foto de la Mascota (Subir archivo o URL previa) */}
+              {/* FOTO DE LA MASCOTA */}
               <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Foto de la Mascota</label>
+                <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">FOTO DE LA MASCOTA</label>
                 <div className="flex items-center gap-4">
-                  <label className="flex-1 border-2 border-dashed border-slate-200 hover:border-slate-300 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer transition bg-slate-50 text-slate-500 font-bold text-xs">
-                    <Upload className="w-4 h-4" />
-                    <span>{archivoFoto ? archivoFoto.name : 'Seleccionar archivo de imagen'}</span>
+                  <label className="flex-1 flex items-center justify-between border-2 border-dashed border-slate-200 rounded-2xl p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Upload className="w-5 h-5" />
+                      <span className="text-sm font-bold text-slate-500 truncate max-w-[200px]">
+                        {archivoFoto ? archivoFoto.name : (formAnimal.foto_url ? 'Imagen cargada' : 'Seleccionar archivo...')}
+                      </span>
+                    </div>
                     <input 
                       type="file" 
                       accept="image/*" 
-                      onChange={handleFotoChange}
                       className="hidden" 
+                      onChange={handleFotoChange}
                     />
                   </label>
                   {vistaPreviaFoto && (
-                    <div 
-                      className="w-12 h-12 rounded-xl bg-cover bg-center border border-slate-200 flex-shrink-0"
-                      style={{ backgroundImage: `url(${vistaPreviaFoto})` }}
+                    <img 
+                      src={vistaPreviaFoto} 
+                      alt="Vista previa" 
+                      className="w-14 h-14 object-cover rounded-2xl border border-slate-200 shadow-sm"
                     />
                   )}
                 </div>
               </div>
 
-              {/* Historia / Contexto */}
+              {/* HISTORIA / CONTEXTO */}
               <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Historia / Contexto de Rescate</label>
+                <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">HISTORIA / CONTEXTO DE RESCATE</label>
                 <textarea 
                   rows="3"
+                  placeholder="Describe el contexto del rescate..."
                   value={formAnimal.historia}
                   onChange={(e) => setFormAnimal({ ...formAnimal, historia: e.target.value })}
-                  placeholder="Escribe dónde y cómo fue encontrado, o detalles importantes..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 transition text-sm font-medium custom-scrollbar"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-medium text-slate-700 outline-none focus:border-slate-400 transition resize-none"
                 />
               </div>
 
-              {/* Botones del Formulario */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              {/* BOTONES DE ACCIÓN */}
+              <div className="flex justify-end gap-4 mt-8 pt-4">
                 <button 
                   type="button"
                   onClick={cerrarModalForm}
-                  className="px-5 py-3 rounded-2xl text-slate-500 font-bold text-sm hover:bg-slate-100 transition"
+                  className="px-6 py-3.5 rounded-2xl text-slate-500 font-bold hover:bg-slate-100 transition"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
                   disabled={guardandoAnimal}
-                  className="px-6 py-3 rounded-2xl text-white font-extrabold text-sm shadow-md transition disabled:opacity-50 hover:opacity-90"
-                  style={{ backgroundColor: tema.principal }}
+                  className="px-8 py-3.5 rounded-2xl text-white font-extrabold shadow-lg transition flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: tema.principal, boxShadow: `0 8px 20px -4px ${tema.principal}60` }}
                 >
-                  {guardandoAnimal ? 'Guardando...' : modoModal === 'crear' ? 'Registrar Mascota' : 'Guardar Cambios'}
+                  {guardandoAnimal ? 'Guardando...' : (modoModal === 'crear' ? 'Registrar' : 'Guardar Cambios')}
                 </button>
               </div>
 
@@ -762,6 +759,7 @@ export default function PanelGestion({ onLogout }) {
           </div>
         </div>
       )}
+
     </div>
   );
 }
