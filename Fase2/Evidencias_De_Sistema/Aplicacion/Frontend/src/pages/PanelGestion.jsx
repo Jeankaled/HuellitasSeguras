@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Cat, Plus, Edit, X, Upload } from 'lucide-react';
 
 export default function PanelGestion({ onLogout }) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [adoptantes, setAdoptantes] = useState([]);
   const [animales, setAnimales] = useState([]);
@@ -12,11 +13,24 @@ export default function PanelGestion({ onLogout }) {
   const [error, setError] = useState('');
 
   // Estados de Interfaz
-  const [vistaActiva, setVistaActiva] = useState('bandeja'); // 'bandeja' o 'catalogo'
+  const [vistaActiva, setVistaActiva] = useState(location.state?.vista || 'bandeja');
+  const [prevVista, setPrevVista] = useState(location.state?.vista);
+
+  // Sincroniza la vista si se navega desde otra página enviando un state
+  if (location.state?.vista !== prevVista) {
+    setPrevVista(location.state?.vista);
+    if (location.state?.vista) {
+      setVistaActiva(location.state.vista);
+    }
+  }
+
   const [seleccionado, setSeleccionado] = useState(null); // Para adoptantes
   const [animalSeleccionado, setAnimalSeleccionado] = useState(null); // Para modal de detalles
   const [fichaClinica, setFichaClinica] = useState(null);
   const [cargandoFicha, setCargandoFicha] = useState(false);
+
+  // Estado para controlar la carga al aprobar adopción
+  const [aprobandoadopcion, setAprobandoadopcion] = useState(false);
 
   // Estados para Formulario y Modal de Crear / Editar Mascota
   const [modalFormAbierto, setModalFormAbierto] = useState(false);
@@ -26,6 +40,13 @@ export default function PanelGestion({ onLogout }) {
   const [errorForm, setErrorForm] = useState('');
   const [archivoFoto, setArchivoFoto] = useState(null);
   const [vistaPreviaFoto, setVistaPreviaFoto] = useState('');
+
+  // Estados para Modal "Solicitar más info / Rechazar"
+  const [modalRespuestaAbierto, setModalRespuestaAbierto] = useState(false);
+  const [tipoAccionRespuesta, setTipoAccionRespuesta] = useState('solicitar_info'); // 'rechazar' o 'solicitar_info'
+  const [motivoRespuesta, setMotivoRespuesta] = useState('Falta documentación');
+  const [mensajeRespuesta, setMensajeRespuesta] = useState('');
+  const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
 
   const [formAnimal, setFormAnimal] = useState({
     nombre: '',
@@ -72,9 +93,6 @@ export default function PanelGestion({ onLogout }) {
             secundario: usuarioGuardado.tema.secundario || '#93C5FD'
           });
         }
-        if (usuarioGuardado.organizacion) {
-          setNombreOrganizacion(usuarioGuardado.organizacion);
-        }
 
         const headers = {
           'Content-Type': 'application/json',
@@ -96,24 +114,36 @@ export default function PanelGestion({ onLogout }) {
         const datosAnimales = await resAnimales.json();
         const datosRefugios = await resRefugios.json();
 
-        const listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.datos || datosAdoptantes.data || datosAdoptantes.adoptantes || []);
-        const listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.datos || datosAnimales.data || datosAnimales.animales || []);
-        const listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.datos || datosRefugios.data || datosRefugios.refugios || []);
+        const listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.data || datosAdoptantes.datos || datosAdoptantes.adoptantes || []);
+        const listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.data || datosAnimales.datos || datosAnimales.animales || []);
+        const listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.data || datosRefugios.datos || datosRefugios.refugios || []);
 
         setAdoptantes(listaAdoptantes);
         setAnimales(listaAnimales);
         setRefugios(listaRefugios);
 
-        if (usuarioGuardado && listaRefugios.length > 0) {
-          const miRefugio = listaRefugios.find(r => r.id === usuarioGuardado.id || r.usuario_id === usuarioGuardado.id);
-          const nombreAmostrar = miRefugio?.nombre_organizacion || miRefugio?.nombre || usuarioGuardado.nombre || 'Refugio';
-          setNombreOrganizacion(nombreAmostrar);
-        } else if (listaRefugios.length > 0) {
-          setNombreOrganizacion(listaRefugios[0].nombre_organizacion || listaRefugios[0].nombre || 'Refugio');
-        }
-
         if (listaAdoptantes.length > 0) {
           setSeleccionado(listaAdoptantes[0]);
+        }
+
+        // --- LÓGICA CORREGIDA DEL NOMBRE DE LA ORGANIZACIÓN ---
+        if (usuarioGuardado.organizacion) {
+          setNombreOrganizacion(usuarioGuardado.organizacion);
+        } else {
+          const idBuscado = usuarioGuardado.refugio_id || usuarioGuardado.id || usuarioGuardado.usuario_id;
+          const miRefugio = listaRefugios.find(r => 
+            r.id === idBuscado || 
+            r.usuario_id === idBuscado || 
+            r.refugio_id === idBuscado
+          );
+
+          if (miRefugio) {
+            setNombreOrganizacion(miRefugio.nombre_organizacion || miRefugio.nombre || 'Gestión de Refugio');
+          } else if (usuarioGuardado.nombre) {
+            setNombreOrganizacion(usuarioGuardado.nombre);
+          } else {
+            setNombreOrganizacion('Gestión de Refugio');
+          }
         }
       } catch (err) {
         setError(err.message);
@@ -216,7 +246,6 @@ export default function PanelGestion({ onLogout }) {
         : `${import.meta.env.VITE_API_URL}/animales/${animalEditandoId}`;
       const metodo = esCrear ? 'POST' : 'PUT';
 
-      // Construcción exacta de FormData para cumplir con la ruta req.body de Express
       const formData = new FormData();
       formData.append('nombre', formAnimal.nombre || '');
       formData.append('especie', formAnimal.especie || 'Perro');
@@ -227,7 +256,6 @@ export default function PanelGestion({ onLogout }) {
       formData.append('historia', formAnimal.historia || '');
       formData.append('edad', formAnimal.edad || '');
 
-      // Campo 'foto' esperado por multer en el backend
       if (archivoFoto) {
         formData.append('foto', archivoFoto);
       }
@@ -255,8 +283,10 @@ export default function PanelGestion({ onLogout }) {
       };
 
       if (esCrear) {
+        // Agrega la mascota recién creada al inicio de la lista
         setAnimales(prev => [animalActualizado, ...prev]);
       } else {
+        // Actualiza la mascota editada
         setAnimales(prev => prev.map(a => a.id === animalEditandoId ? animalActualizado : a));
         if (animalSeleccionado && animalSeleccionado.id === animalEditandoId) {
           setAnimalSeleccionado(animalActualizado);
@@ -268,6 +298,110 @@ export default function PanelGestion({ onLogout }) {
       setErrorForm(err.message || 'Ocurrió un error inesperado al guardar.');
     } finally {
       setGuardandoAnimal(false);
+    }
+  };
+
+  const handleAprobarAdopcion = async () => {
+    if (!seleccionado) return;
+
+    const confirmacion = window.confirm(
+      `¿Estás seguro de aprobar la adopción para ${seleccionado.nombre_completo || 'el postulante'}?`
+    );
+    if (!confirmacion) return;
+
+    setAprobandoadopcion(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
+
+      const refugio_id = usuarioGuardado.refugio_id || usuarioGuardado.id;
+      const animal_id = seleccionado.animal_id || (animales[0] ? animales[0].id : null);
+      const adoptante_id = seleccionado.id;
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/contratos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          refugio_id,
+          animal_id,
+          adoptante_id
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ocurrió un error al procesar la aprobación');
+      }
+
+      alert(
+        `¡Adopción Aprobada Exitosamente! 🐾\n\n` +
+        `Se generó el borrador del contrato en PDF y se envió el código OTP de Firma Electrónica al correo del adoptante.`
+      );
+    } catch (err) {
+      console.error('Error al aprobar adopción:', err);
+      alert(`Error al aprobar adopción: ${err.message}`);
+    } finally {
+      setAprobandoadopcion(false);
+    }
+  };
+
+  // MANEJO DE MODAL "SOLICITAR MÁS INFO / RECHAZAR"
+  const abrirModalRespuesta = (tipo = 'solicitar_info') => {
+    setTipoAccionRespuesta(tipo);
+    setMotivoRespuesta('Falta documentación');
+    setMensajeRespuesta('');
+    setModalRespuestaAbierto(true);
+  };
+
+  const cerrarModalRespuesta = () => {
+    setModalRespuestaAbierto(false);
+    setMensajeRespuesta('');
+  };
+
+  const handleEnviarRespuesta = async (e) => {
+    e.preventDefault();
+    if (!seleccionado) return;
+
+    setEnviandoRespuesta(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/solicitudes/respuesta`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          adoptante_id: seleccionado.id,
+          accion: tipoAccionRespuesta,
+          motivo: motivoRespuesta,
+          mensaje: mensajeRespuesta
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || data.mensaje || 'Ocurrió un error al enviar la respuesta');
+      }
+
+      alert(
+        tipoAccionRespuesta === 'rechazar'
+          ? 'La solicitud ha sido rechazada y se notificó al postulante.'
+          : 'Se ha enviado la solicitud de más información al postulante.'
+      );
+
+      cerrarModalRespuesta();
+    } catch (err) {
+      console.error('Error al enviar respuesta:', err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setEnviandoRespuesta(false);
     }
   };
 
@@ -304,7 +438,26 @@ export default function PanelGestion({ onLogout }) {
             <Cat className="w-6 h-6" />
           </button>
 
-          <button className="p-3 hover:bg-slate-100 rounded-2xl transition"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg></button>
+          <button 
+            onClick={() => navigate('/directorio')}
+            className="p-3 bg-white rounded-2xl transition shadow-sm border border-slate-100 hover:bg-slate-100 hover:text-slate-600 hover:scale-105"
+            title="Ir a Directorio"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+          </button>
+
+          <button 
+            onClick={() => navigate('/ajustes-perfil')}
+            className="p-3 rounded-2xl transition shadow-sm text-slate-400 hover:bg-slate-100 hover:scale-105"
+            title="Ajustes de la Fundación"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          </button>
           
           <div className="mt-auto pt-8">
             <button 
@@ -345,7 +498,7 @@ export default function PanelGestion({ onLogout }) {
           )}
         </header>
 
-        {vistaActiva === 'bandeja' ? (
+        {vistaActiva === 'bandeja' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 items-start">
             <section className="lg:col-span-4 flex flex-col gap-4">
               <div className="flex justify-between items-center px-1 mb-2">
@@ -377,7 +530,19 @@ export default function PanelGestion({ onLogout }) {
                     </p>
                     <div className="flex justify-between items-center text-xs text-slate-400 font-medium">
                       <span className="flex items-center gap-1"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg> Hoy</span>
-                      <span className="transition" style={{ color: tema.secundario }}>Ver ficha →</span>
+                      
+                      {/* === BOTÓN MODIFICADO AQUÍ === */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evita que se seleccione la tarjeta de fondo
+                          navigate(`/solicitudes/${adoptante.id}`);
+                        }}
+                        className="transition font-bold hover:underline" 
+                        style={{ color: tema.secundario }}
+                      >
+                        Ver ficha completa →
+                      </button>
+                      
                     </div>
                   </div>
                 ))}
@@ -438,23 +603,145 @@ export default function PanelGestion({ onLogout }) {
                   </div>
                 </div>
                 <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-slate-100">
-                  <button className="px-6 py-3.5 rounded-2xl text-slate-500 font-bold border-2 border-slate-200 hover:bg-slate-50 transition flex items-center gap-2">
+                  <button 
+                    onClick={() => abrirModalRespuesta('solicitar_info')}
+                    className="px-6 py-3.5 rounded-2xl text-slate-500 font-bold border-2 border-slate-200 hover:bg-slate-50 transition flex items-center gap-2"
+                  >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     Solicitar más info / Rechazar
                   </button>
-                  <button className="px-8 py-3.5 rounded-2xl text-white font-extrabold shadow-lg transition flex items-center gap-2 hover:opacity-90 transform hover:-translate-y-0.5" style={{ backgroundColor: tema.principal, boxShadow: `0 10px 15px -3px ${tema.principal}60` }}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Aprobar Adopción 🐾
+                  <button 
+                    onClick={handleAprobarAdopcion}
+                    disabled={aprobandoadopcion}
+                    className={`px-8 py-3.5 rounded-2xl text-white font-extrabold shadow-lg transition flex items-center gap-2 transform hover:-translate-y-0.5 ${
+                      aprobandoadopcion ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                    }`} 
+                    style={{ 
+                      backgroundColor: tema.principal, 
+                      boxShadow: `0 10px 15px -3px ${tema.principal}60` 
+                    }}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    {aprobandoadopcion ? 'Generando Contrato...' : 'Aprobar Adopción 🐾'}
                   </button>
                 </div>
               </section>
             )}
           </div>
-        ) : (
-          /* VISTA CATÁLOGO DE MASCOTAS */
+        )}
+
+
+        {/* MODAL SOLICITAR MÁS INFO / RECHAZAR */}
+        {modalRespuestaAbierto && (
+          <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden p-6 relative">
+              <button 
+                onClick={cerrarModalRespuesta}
+                className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="mb-6">
+                <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                  <span>{tipoAccionRespuesta === 'rechazar' ? '❌ Rechazar Solicitud' : '📩 Solicitar Más Información'}</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Se enviará una notificación a <span className="font-bold text-slate-700">{seleccionado?.nombre_completo || 'el postulante'}</span>.
+                </p>
+              </div>
+
+              {/* Selector Tipo de Acción */}
+              <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl mb-5">
+                <button
+                  type="button"
+                  onClick={() => setTipoAccionRespuesta('solicitar_info')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                    tipoAccionRespuesta === 'solicitar_info'
+                      ? 'bg-white text-slate-800 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  📩 Solicitar Información
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoAccionRespuesta('rechazar')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                    tipoAccionRespuesta === 'rechazar'
+                      ? 'bg-red-500 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  ❌ Rechazar
+                </button>
+              </div>
+
+              <form onSubmit={handleEnviarRespuesta} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                    Motivo principal
+                  </label>
+                  <select
+                    value={motivoRespuesta}
+                    onChange={(e) => setMotivoRespuesta(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-400 bg-slate-50"
+                  >
+                    <option value="Falta documentación">Falta documentación</option>
+                    <option value="Vivienda no apta">Vivienda no apta</option>
+                    <option value="Ingresos insuficientes">Ingresos insuficientes</option>
+                    <option value="Incompatibilidad con otra mascota">Incompatibilidad con otra mascota</option>
+                    <option value="Otro">Otro motivo</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                    Mensaje personalizado
+                  </label>
+                  <textarea
+                    rows="4"
+                    value={mensajeRespuesta}
+                    onChange={(e) => setMensajeRespuesta(e.target.value)}
+                    placeholder="Escribe un mensaje detallando lo solicitado o el motivo del rechazo..."
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-400 bg-slate-50 resize-none"
+                    required
+                  ></textarea>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={cerrarModalRespuesta}
+                    className="px-5 py-2.5 rounded-xl text-slate-500 font-bold text-sm hover:bg-slate-100 transition"
+                  >
+                    Cancelar
+                    </button>
+                  <button
+                    type="submit"
+                    disabled={enviandoRespuesta}
+                    className={`px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-md transition flex items-center gap-2 ${
+                      tipoAccionRespuesta === 'rechazar' ? 'bg-red-500 hover:bg-red-600' : ''
+                    } ${enviandoRespuesta ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
+                    style={{
+                      backgroundColor: tipoAccionRespuesta === 'rechazar' ? undefined : tema.principal
+                    }}
+                  >
+                    {enviandoRespuesta ? 'Enviando...' : tipoAccionRespuesta === 'rechazar' ? 'Confirmar Rechazo' : 'Enviar Mensaje'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA CATÁLOGO DE MASCOTAS */}
+        {vistaActiva === 'catalogo' && (
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 custom-scrollbar pb-8">
             {animales.map((animal) => (
-              <div key={animal.id} className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 flex flex-col hover:shadow-lg transition-all duration-300 relative group">
+              <div key={animal.id} className="bg-white rounded-4xl p-5 shadow-sm border border-slate-100 flex flex-col hover:shadow-lg transition-all duration-300 relative group">
                 
                 {/* BOTÓN EDITAR EN LA TARJETA */}
                 <button
@@ -486,7 +773,7 @@ export default function PanelGestion({ onLogout }) {
                   </span>
                 </div>
                 <p className="text-sm font-medium text-slate-500 mb-1">{animal.especie} {animal.raza ? `• ${animal.raza}` : ''}</p>
-                <p className="text-sm text-slate-400 mb-5">{animal.edad || 'Edad no especificada'} • {animal.sexo}</p>
+                <p className="text-sm text-slate-400 mb-5">{animal.edad || 'Edad no especificada'} {animal.sexo}</p>
                 
                 <div className="mt-auto flex gap-2">
                   <button 
@@ -643,7 +930,7 @@ export default function PanelGestion({ onLogout }) {
                 />
               </div>
 
-              {/* ESPECIE Y SEXO */}
+              {/* ESPECIE Y RAZA */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">ESPECIE</label>
@@ -658,6 +945,20 @@ export default function PanelGestion({ onLogout }) {
                   </select>
                 </div>
                 <div>
+                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">RAZA</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ej: Mestizo, Poodle..."
+                    value={formAnimal.raza}
+                    onChange={(e) => setFormAnimal({ ...formAnimal, raza: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
+                  />
+                </div>
+              </div>
+
+              {/* SEXO Y EDAD */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">SEXO</label>
                   <select 
                     value={formAnimal.sexo}
@@ -668,22 +969,22 @@ export default function PanelGestion({ onLogout }) {
                     <option value="Hembra">♀ Hembra</option>
                   </select>
                 </div>
-              </div>
-
-              {/* EDAD Y ESTADO INICIAL */}
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">EDAD / F. NACIMIENTO ESTIMADA</label>
+                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">EDAD APROXIMADA</label>
                   <input 
                     type="text" 
-                    placeholder="Ej: 2 años"
+                    placeholder="Ej: 2 años, 3 meses..."
                     value={formAnimal.edad}
                     onChange={(e) => setFormAnimal({ ...formAnimal, edad: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
                   />
                 </div>
+              </div>
+
+              {/* ESTADO INICIAL Y MICROCHIP (Opcional) */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">ESTADO INICIAL</label>
+                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">ESTADO</label>
                   <select 
                     value={formAnimal.estado}
                     onChange={(e) => setFormAnimal({ ...formAnimal, estado: e.target.value })}
@@ -694,6 +995,16 @@ export default function PanelGestion({ onLogout }) {
                     <option value="Adoptado">Adoptado</option>
                   </select>
                 </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">MICROCHIP (Opcional)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Nº de chip..."
+                    value={formAnimal.microchip}
+                    onChange={(e) => setFormAnimal({ ...formAnimal, microchip: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
+                  />
+                </div>
               </div>
 
               {/* FOTO DE LA MASCOTA */}
@@ -703,7 +1014,7 @@ export default function PanelGestion({ onLogout }) {
                   <label className="flex-1 flex items-center justify-between border-2 border-dashed border-slate-200 rounded-2xl p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition">
                     <div className="flex items-center gap-2 text-slate-400">
                       <Upload className="w-5 h-5" />
-                      <span className="text-sm font-bold text-slate-500 truncate max-w-[200px]">
+                      <span className="text-sm font-bold text-slate-500 truncate max-w-50">
                         {archivoFoto ? archivoFoto.name : (formAnimal.foto_url ? 'Imagen cargada' : 'Seleccionar archivo...')}
                       </span>
                     </div>

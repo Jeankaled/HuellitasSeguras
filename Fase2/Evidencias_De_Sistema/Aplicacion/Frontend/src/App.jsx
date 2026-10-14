@@ -3,7 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import PanelGestion from './pages/PanelGestion';
 import Registro from './pages/Registro';
+import DirectorioAdoptantes from './pages/DirectorioAdoptantes';
 import { Toaster } from 'react-hot-toast'; 
+import PerfilFundacion from './pages/PerfilFundacion';
+import FichaSolicitud from './pages/FichaSolicitud';
 
 function App() {
   
@@ -30,7 +33,7 @@ function App() {
         {/* 1. La ruta raíz redirige lógicamente */}
         <Route path="/" element={<Navigate to={token ? "/panel" : "/login"} replace />} />
 
-        {/* 2. Ruta explícita de Login (Esto resuelve el Error 404/Bucle) */}
+        {/* 2. Ruta explícita de Login */}
         <Route 
           path="/login" 
           element={token ? <Navigate to="/panel" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} 
@@ -47,8 +50,26 @@ function App() {
           path="/panel" 
           element={token ? <PanelGestion onLogout={handleLogout} /> : <Navigate to="/login" replace />} 
         />
+
+        {/* 5. Ruta Protegida del Directorio */}
+        <Route 
+          path="/directorio" 
+          element={token ? <DirectorioAdoptantes onLogout={handleLogout} /> : <Navigate to="/login" replace />} 
+        />
         
-        {/* 5. Comodín: Captura rutas rotas */}
+        {/* 6. Ruta de Ajustes (Debe ir ANTES del comodín) */}
+        <Route 
+          path="/ajustes-perfil" 
+          element={token ? <PerfilFundacion /> : <Navigate to="/login" replace />} 
+        />
+
+        {/* 7. NUEVA RUTA PARA LA FICHA COMPLETA (Debe ir ANTES del comodín) */}
+        <Route 
+          path="/solicitudes/:id" 
+          element={token ? <FichaSolicitud /> : <Navigate to="/login" replace />} 
+        />
+
+        {/* 8. Comodín: Captura rutas rotas (SIEMPRE AL FINAL) */}
         <Route 
           path="*" 
           element={<Navigate to={token ? "/panel" : "/login"} replace />} 
