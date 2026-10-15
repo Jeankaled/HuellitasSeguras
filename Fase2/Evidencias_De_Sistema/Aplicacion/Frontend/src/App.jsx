@@ -7,7 +7,9 @@ import DirectorioAdoptantes from './pages/DirectorioAdoptantes';
 import { Toaster } from 'react-hot-toast'; 
 import PerfilFundacion from './pages/PerfilFundacion';
 import FichaSolicitud from './pages/FichaSolicitud';
-
+import PreferenciasAdoptante from './pages/PreferenciasAdoptante';
+import PerfilAdoptante from './pages/PerfilAdoptante';
+import DirectorioFundaciones from './pages/DirectorioFundaciones';
 function App() {
   
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -74,6 +76,12 @@ function App() {
           path="*" 
           element={<Navigate to={token ? "/panel" : "/login"} replace />} 
         />
+        <Route path="/preferencias-adoptante" element={<PreferenciasAdoptante />} 
+        />
+
+        <Route path="/perfil-adoptante" element={<PerfilAdoptante />} 
+        />
+        <Route path="/fundaciones" element={<DirectorioFundaciones />} /> 
       </Routes>
     </Router>
   );

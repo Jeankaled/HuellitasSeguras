@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function Login({ onLoginSuccess, onNavigateToRegister }) {
+export default function Login({ onNavigateToRegister }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,12 +52,20 @@ export default function Login({ onLoginSuccess, onNavigateToRegister }) {
         localStorage.setItem('usuario', JSON.stringify(datos.usuario));
       }
 
-      // Redirección limpia (sin código duplicado)
-      if (typeof onLoginSuccess === 'function') {
-        onLoginSuccess(datos.usuario);
-      } else {
-        navigate('/panel');
-      }
+      // 🎯 Redirección dinámica robusta según el rol o tipo de cuenta
+      setTimeout(() => {
+        const esAdoptante = 
+          datos.usuario?.rol === 'adoptante' || 
+          datos.tipo === 'adoptante' || 
+          datos.rol === 'adoptante' ||
+          (!datos.usuario?.nombre_organizacion && !datos.usuario?.rut);
+
+        if (esAdoptante) {
+          navigate('/fundaciones'); // 👈 Redirige al directorio de fundaciones si es adoptante
+        } else {
+          navigate('/panel'); // 👈 Redirige al panel de administración si es fundación
+        }
+      }, 1000);
 
     } catch (err) {
       setError(err.message);
