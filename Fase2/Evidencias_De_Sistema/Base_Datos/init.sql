@@ -29,6 +29,7 @@ CREATE TABLE Animales (
   especie VARCHAR(50),
   raza VARCHAR(100),
   sexo VARCHAR(20),
+  edad varchar(50),
   fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   estado VARCHAR(50) DEFAULT 'Disponible',
   microchip VARCHAR(50) UNIQUE,

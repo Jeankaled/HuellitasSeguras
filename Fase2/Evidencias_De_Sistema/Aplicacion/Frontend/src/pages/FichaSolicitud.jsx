@@ -46,7 +46,8 @@ export default function FichaSolicitud() {
           });
         }
 
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/adoptantes/${id}`, {
+        // 1. CAMBIO AQUÍ: Ahora apuntamos a la ruta de contratos
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/contratos/${id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -58,28 +59,36 @@ export default function FichaSolicitud() {
           throw new Error('No se pudo cargar la información de esta solicitud.');
         }
 
-        const data = await res.json();
-        const adoptanteReal = data.data || data.adoptante || data;
+        // 2. CAMBIO AQUÍ: El backend devuelve el objeto del contrato directo en esta ruta
+        const contrato = await res.json(); 
 
+        // 3. CAMBIO AQUÍ: Mapeamos usando los nombres exactos que enviará el backend
         setSolicitud({
-          id: adoptanteReal.id,
-          estado: adoptanteReal.estado || 'Pendiente',
+          id: contrato.id,
+          estado: contrato.estado_firma || 'Pendiente',
           postulante: {
-            nombre: adoptanteReal.nombre_completo || adoptanteReal.nombre || 'Sin Nombre',
-            rut: adoptanteReal.rut || '',
-            telefono: adoptanteReal.telefono || '',
-            correo: adoptanteReal.correo || '',
-            ciudad: adoptanteReal.ciudad || '',
-            avatar: (adoptanteReal.nombre_completo || adoptanteReal.nombre || 'A').charAt(0).toUpperCase()
+            nombre: contrato.nombre_adoptante || 'Sin Nombre',
+            rut: contrato.rut_adoptante || '',
+            telefono: contrato.telefono_adoptante || '',
+            correo: contrato.correo_adoptante || '',
+            ciudad: 'No especificada', 
+            avatar: (contrato.nombre_adoptante || 'A').charAt(0).toUpperCase()
           },
           mascota: {
-            nombre: adoptanteReal.nombre_mascota || '',
-            especie: adoptanteReal.especie_mascota || '',
-            foto: adoptanteReal.foto_mascota || ''
+            nombre: contrato.nombre_animal || 'No especificada',
+            especie: contrato.especie_animal || 'No especificada',
+            foto: contrato.foto_animal || ''
           },
-          respuestas: adoptanteReal.respuestas || adoptanteReal,
-          documentos: adoptanteReal.documentos || [],
-          historial: adoptanteReal.historial || []
+          respuestas: {
+             tipo_vivienda: 'No especificado',
+             composicion_hogar: 'No especificado',
+             otras_mascotas: 'No especificado',
+             tiempo_solas: 'No especificado',
+             motivacion: 'No especificada'
+          },
+          // Si el contrato tiene un PDF (como inyectamos en el seeder), aparecerá aquí
+          documentos: contrato.pdf_url ? [{ nombre: 'Contrato Legal de Adopción', url: contrato.pdf_url, fecha: 'Reciente' }] : [],
+          historial: []
         });
 
       } catch (err) {
