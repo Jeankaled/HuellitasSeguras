@@ -22,23 +22,24 @@ export default function CatalogoMascotasRefugio() {
 
     const fetchData = async () => {
       try {
-        // 1. Obtener detalles de las fundaciones para extraer la info de esta en particular
-        const resRefugios = await fetch('http://localhost:3000/refugios');
-        if (resRefugios.ok) {
-          const dataRefugios = await resRefugios.json();
-          const listaRefugios = Array.isArray(dataRefugios) ? dataRefugios : (dataRefugios.datos || dataRefugios.refugios || []);
-          const encontrada = listaRefugios.find(f => String(f.id || f._id) === String(refugioId));
-          if (encontrada) setRefugio(encontrada);
-        }
+        const token = localStorage.getItem('token'); // Rescatamos el token del adoptante
 
-        // 2. Obtener mascotas públicas del refugio
-        const resAnimales = await fetch(`http://localhost:3000/refugios/${refugioId}/animales`);
-        if (resAnimales.ok) {
-          const dataAnimales = await resAnimales.json();
-          setAnimales(dataAnimales.datos || []);
+        // Hacemos una única petición a la nueva ruta pública de catálogo en el backend
+        const resCatalogo = await fetch(`http://localhost:3000/animales/catalogo/${refugioId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` // Enviamos el token del adoptante
+          }
+        });
+
+        if (resCatalogo.ok) {
+          const data = await resCatalogo.json();
+          setRefugio(data.fundacion); // Automáticamente trae el logo y colores
+          setAnimales(data.animales || []); // Carga la lista de perritos/gatitos
         }
       } catch (error) {
-        console.error("Error al cargar datos del refugio y mascotas:", error);
+        console.error("Error al cargar datos del catálogo:", error);
       } finally {
         setCargando(false);
       }
