@@ -28,6 +28,42 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET: Obtener catálogo público de animales y datos de una fundación específica (Para vista de adoptantes)
+router.get('/catalogo/:refugio_id', async (req, res) => {
+    try {
+        const { refugio_id } = req.params;
+
+        // 1. Buscamos la identidad visual y datos de la fundación
+        const refugioQuery = await db.query(
+            `SELECT id, nombre_organizacion, direccion, telefono, email_contacto, color_principal, color_secundario, logo_url 
+             FROM Refugios WHERE id = $1`, 
+            [refugio_id]
+        );
+
+        if (refugioQuery.rowCount === 0) {
+            return res.status(404).json({ error: "Fundación no encontrada" });
+        }
+
+        // 2. Buscamos SOLO los animales que estén disponibles para adopción en esa fundación
+        const animalesQuery = await db.query(
+            `SELECT * FROM Animales WHERE refugio_id = $1 AND estado = 'Disponible' ORDER BY fecha_ingreso DESC`,
+            [refugio_id]
+        );
+
+        // 3. Empaquetamos todo para facilitar el armado de la vista en el frontend
+        res.json({
+            mensaje: "Catálogo obtenido con éxito",
+            fundacion: refugioQuery.rows[0],
+            cantidad_animales: animalesQuery.rowCount,
+            animales: animalesQuery.rows
+        });
+
+    } catch (error) {
+        console.error("Error al obtener catálogo:", error);
+        res.status(500).json({ error: "Hubo un problema al consultar el catálogo" });
+    }
+});
+
 // POST: Registrar un nuevo animal
 router.post('/', upload.single('foto'), async (req, res) => {
     try {

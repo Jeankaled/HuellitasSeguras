@@ -18,9 +18,13 @@ const validarFormatoRUT = (rut) => {
     return rutRegex.test(rut);
 };
 
+// GET: Obtener todos los refugios (Ahora incluye identidad visual)
 router.get('/', async (req, res) => {
     try {
-        const resultado = await db.query('SELECT id, rut, nombre_organizacion, direccion, email_contacto, telefono FROM Refugios');
+        // Agregamos logo_url, color_principal y color_secundario al SELECT
+        const resultado = await db.query(
+            'SELECT id, rut, nombre_organizacion, direccion, email_contacto, telefono, logo_url, color_principal, color_secundario FROM Refugios'
+        );
         res.json({
             mensaje: "Lista de refugios obtenida con éxito",
             cantidad: resultado.rowCount,
