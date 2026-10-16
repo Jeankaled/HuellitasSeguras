@@ -10,6 +10,7 @@ import FichaSolicitud from './pages/FichaSolicitud';
 import PreferenciasAdoptante from './pages/PreferenciasAdoptante';
 import PerfilAdoptante from './pages/PerfilAdoptante';
 import DirectorioFundaciones from './pages/DirectorioFundaciones';
+import CatalogoMascotasRefugio from './pages/CatalogoMascotasRefugio';
 function App() {
   
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -82,6 +83,8 @@ function App() {
         <Route path="/perfil-adoptante" element={<PerfilAdoptante />} 
         />
         <Route path="/fundaciones" element={<DirectorioFundaciones />} /> 
+
+        <Route path="/catalogo-adoptante" element={<CatalogoMascotasRefugio />} />
       </Routes>
     </Router>
   );
