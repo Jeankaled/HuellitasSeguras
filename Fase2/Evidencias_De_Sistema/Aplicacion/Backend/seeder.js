@@ -58,7 +58,7 @@ const inyectarDatosMasivos = async () => {
         for (let i = 0; i < nombresPatitas.length; i++) {
             const anim = await db.query(
                 `INSERT INTO Animales (refugio_id, nombre, especie, raza, sexo, edad, estado, microchip)
-                 VALUES ($1, $2, 'Perro', 'Mestizo', 'Macho', '2 años', 'Disponible', $3) RETURNING id;`,
+                 VALUES ($1, $2, 'Perro', 'Mestizo', 'Macho', '2 años', 'En adopción', $3) RETURNING id;`,
                 [ref1_id, nombresPatitas[i], `9810200001234${i.toString().padStart(2, '0')}`]
             );
             animalesIds.push(anim.rows[0].id);
@@ -69,7 +69,7 @@ const inyectarDatosMasivos = async () => {
         for (let i = 0; i < nombresEsperanza.length; i++) {
             const anim = await db.query(
                 `INSERT INTO Animales (refugio_id, nombre, especie, raza, sexo, edad, estado, microchip)
-                 VALUES ($1, $2, 'Gato', 'Mestizo', 'Hembra', '6 meses', 'Disponible', $3) RETURNING id;`,
+                 VALUES ($1, $2, 'Gato', 'Mestizo', 'Hembra', '6 meses', 'En adopción', $3) RETURNING id;`,
                 [ref2_id, nombresEsperanza[i], `9810200009999${i.toString().padStart(2, '0')}`]
             );
             animalesIds.push(anim.rows[0].id);
