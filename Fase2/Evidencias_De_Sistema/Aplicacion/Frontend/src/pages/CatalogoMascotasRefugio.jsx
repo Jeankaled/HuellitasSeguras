@@ -16,30 +16,33 @@ export default function CatalogoMascotasRefugio() {
   const [cargando, setCargando] = useState(true);
   const [cargandoFicha, setCargandoFicha] = useState(false);
 
-  // Cargar información de la fundación y sus mascotas
+  // Cargar información de la fundación y sus mascotas conectando al backend de forma segura
   useEffect(() => {
     if (!refugioId) return;
 
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('token'); // Rescatamos el token del adoptante
+        const token = localStorage.getItem('token');
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-        // Hacemos una única petición a la nueva ruta pública de catálogo en el backend
-        const resCatalogo = await fetch(`http://localhost:3000/animales/catalogo/${refugioId}`, {
-          method: 'GET',
+        // Usamos TU ruta especializada del backend
+        const res = await fetch(`${apiBase}/animales/catalogo/${refugioId}`, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` // Enviamos el token del adoptante
+            'Authorization': `Bearer ${token}` 
           }
         });
 
-        if (resCatalogo.ok) {
-          const data = await resCatalogo.json();
-          setRefugio(data.fundacion); // Automáticamente trae el logo y colores
-          setAnimales(data.animales || []); // Carga la lista de perritos/gatitos
+        if (res.ok) {
+          const data = await res.json();
+          // Tu backend ya te entrega todo empaquetado y listo para usar
+          setRefugio(data.fundacion);
+          setAnimales(data.animales || []);
+        } else {
+          console.error("Error al cargar los datos de la fundación");
         }
       } catch (error) {
-        console.error("Error al cargar datos del catálogo:", error);
+        console.error("Error de conexión al cargar catálogo:", error);
       } finally {
         setCargando(false);
       }
@@ -53,7 +56,11 @@ export default function CatalogoMascotasRefugio() {
     setAnimalSeleccionado(animal);
     setCargandoFicha(true);
     try {
-      const res = await fetch(`http://localhost:3000/fichas-clinicas/animal/${animal.id}`);
+      const token = localStorage.getItem('token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiBase}/fichas-clinicas/animal/${animal.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setFichaMedica(data);
@@ -67,11 +74,16 @@ export default function CatalogoMascotasRefugio() {
     }
   };
 
-  // Filtrado dinámico de mascotas
+  // 1. Filtrado dinámico mejorado y normalizado
   const animalesFiltrados = animales.filter(animal => {
     const coincideTexto = animal.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
                           animal.raza?.toLowerCase().includes(busqueda.toLowerCase());
-    const coincideEspecie = filtroEspecie === 'Todos' || animal.especie === filtroEspecie;
+    
+    // Normalizamos las especies a minúsculas para evitar errores de coincidencia
+    const especieAnimal = animal.especie?.trim().toLowerCase() || '';
+    const especieFiltro = filtroEspecie === 'Todos' ? 'todos' : filtroEspecie.trim().toLowerCase();
+    
+    const coincideEspecie = filtroEspecie === 'Todos' || especieAnimal === especieFiltro;
     return coincideTexto && coincideEspecie;
   });
 
@@ -205,10 +217,16 @@ export default function CatalogoMascotasRefugio() {
                 onClick={() => abrirDetalles(animal)}
                 className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-pink-100 flex flex-col cursor-pointer group"
               >
-                {/* FOTO CON ETIQUETAS */}
+                {/* FOTO CON ETIQUETAS CORREGIDAS */}
                 <div className="relative h-64 overflow-hidden bg-pink-50">
                   <img 
-                    src={animal.foto_url || animal.foto ? (animal.foto_url || animal.foto).startsWith('http') ? (animal.foto_url || animal.foto) : `http://localhost:3000${animal.foto_url || animal.foto}` : "https://images.unsplash.com/photo-1543466835-00a7907e9de1"} 
+                    src={
+                      animal.foto_url || animal.foto 
+                        ? (animal.foto_url || animal.foto).startsWith('http') 
+                          ? (animal.foto_url || animal.foto) 
+                          : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${animal.foto_url || animal.foto}` 
+                        : "https://images.unsplash.com/photo-1543466835-00a7907e9de1"
+                    } 
                     alt={animal.nombre}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                   />
@@ -224,13 +242,14 @@ export default function CatalogoMascotasRefugio() {
                 <div className="p-5 flex flex-col flex-1 justify-between">
                   <div>
                     <h3 className="text-xl font-extrabold text-slate-800">{animal.nombre}</h3>
-                    <p className="text-slate-500 text-sm font-medium mt-0.5">
-                      {animal.raza || 'Raza mestiza'} • <span className="text-pink-500 font-bold">{animal.edad ? `${animal.edad} años` : 'Edad no especificada'}</span>
+                    <p className="text-slate-500 text-sm font-medium mt-0.5 flex justify-between">
+                      <span>{animal.raza || 'Raza mestiza'}</span>
+                      <span className="text-pink-500 font-bold">{animal.edad ? animal.edad : 'N/D'}</span>
                     </p>
                   </div>
 
                   <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ver ficha y historia</span>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ver ficha e historia</span>
                     <div 
                       className="w-9 h-9 rounded-2xl text-white flex items-center justify-center transition shadow-md"
                       style={{ backgroundColor: colorPrimario }}
@@ -254,7 +273,7 @@ export default function CatalogoMascotasRefugio() {
             {/* CABECERA DEL MODAL */}
             <div className="relative h-72 bg-pink-100 shrink-0">
               <img 
-                src={animalSeleccionado.foto_url || animalSeleccionado.foto ? (animalSeleccionado.foto_url || animalSeleccionado.foto).startsWith('http') ? (animalSeleccionado.foto_url || animalSeleccionado.foto) : `http://localhost:3000${animalSeleccionado.foto_url || animalSeleccionado.foto}` : "https://images.unsplash.com/photo-1543466835-00a7907e9de1"} 
+                src={animalSeleccionado.foto_url || animalSeleccionado.foto ? (animalSeleccionado.foto_url || animalSeleccionado.foto).startsWith('http') ? (animalSeleccionado.foto_url || animalSeleccionado.foto) : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${animalSeleccionado.foto_url || animalSeleccionado.foto}` : "https://images.unsplash.com/photo-1543466835-00a7907e9de1"} 
                 alt={animalSeleccionado.nombre}
                 className="w-full h-full object-cover"
               />
@@ -266,7 +285,7 @@ export default function CatalogoMascotasRefugio() {
               </button>
               <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-sm">
                 <h2 className="text-2xl font-extrabold text-slate-800">{animalSeleccionado.nombre}</h2>
-                <p className="text-xs font-bold text-pink-600">{animalSeleccionado.especie} • {animalSeleccionado.raza || 'Mestizo'}</p>
+                <p className="text-xs font-bold text-pink-600">{animalSeleccionado.especie} - {animalSeleccionado.raza || 'Mestizo'}</p>
               </div>
             </div>
 
@@ -281,7 +300,7 @@ export default function CatalogoMascotasRefugio() {
                 </div>
                 <div className="bg-pink-50/60 p-3 rounded-2xl text-center">
                   <span className="text-xs text-slate-400 font-bold block">EDAD</span>
-                  <span className="text-slate-700 font-extrabold text-sm">{animalSeleccionado.edad ? `${animalSeleccionado.edad} años` : 'N/D'}</span>
+                  <span className="text-slate-700 font-extrabold text-sm">{animalSeleccionado.edad ? animalSeleccionado.edad : 'N/D'}</span>
                 </div>
                 <div className="bg-pink-50/60 p-3 rounded-2xl text-center">
                   <span className="text-xs text-slate-400 font-bold block">MICROCHIP</span>
