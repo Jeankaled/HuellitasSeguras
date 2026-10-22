@@ -140,8 +140,12 @@ export default function Registro() {
            throw new Error(data.error || 'Error al registrar fundación');
         }
 
-        // 2. Éxito: Actualizamos la notificación de carga a éxito
+        // 2. Éxito Fundación
         toast.success('¡Fundación y Administrador creados con éxito! Redirigiendo...', { id: toastId });
+        
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
 
       } else {
         const adoptanteData = {
@@ -163,14 +167,20 @@ export default function Registro() {
            throw new Error(data.error || 'Hubo un error al registrar el adoptante');
         }
         
-        // 2. Éxito: Actualizamos la notificación de carga a éxito
-        toast.success('¡Cuenta de adoptante creada con éxito! Redirigiendo...', { id: toastId });
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('usuario', JSON.stringify(data.usuario || adoptanteData));
+        } else {
+          localStorage.setItem('usuario', JSON.stringify(adoptanteData));
+        }
+
+        // 2. Éxito Adoptante
+        toast.success('¡Cuenta de adoptante creada con éxito! Configurando preferencias...', { id: toastId });
+        
+        setTimeout(() => {
+          navigate('/preferencias-adoptante');
+        }, 1500);
       }
-      
-      // 3. Esperamos 1.5 segundos para que el usuario lea el mensaje antes de cambiar de página
-      setTimeout(() => {
-        navigate('/login');
-      }, 1500);
 
     } catch (error) {
       console.error('Error al registrar:', error);
@@ -301,7 +311,7 @@ export default function Registro() {
             {tipoCuenta === 'fundacion' && (
               <div className="animate-fadeIn space-y-8">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">1. Datos de la Organización</h2>
+                  <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">Datos de la Organización</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input 
                       type="text" placeholder="🏢 Nombre (Ej. Refugio Esperanza)" 

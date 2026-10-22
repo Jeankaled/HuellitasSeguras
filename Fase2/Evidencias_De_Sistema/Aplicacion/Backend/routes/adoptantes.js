@@ -5,13 +5,15 @@ const db = require('../db');
 const bcrypt = require('bcrypt');
 const verificarToken = require('../middlewares/verificarToken');
 
-// OBTENER TODOS (Filtrados estrictamente por el refugio activo)
+const validarFormatoRUT = (rut) => {
+    const rutRegex = /^[0-9]{1,2}(\.?[0-9]{3}){2}-[0-9Kk]{1}$/;
+    return rutRegex.test(rut);
+};
+
 router.get('/', verificarToken, async (req, res) => {
     try {
-        // Extraemos el refugio del administrador desde el token interceptado
         const { refugio_id } = req.usuario; 
 
-        // Solo traemos adoptantes que tengan una postulación activa en ESTE refugio
         const consulta = `
             SELECT DISTINCT a.* 
             FROM Adoptantes a
@@ -26,7 +28,6 @@ router.get('/', verificarToken, async (req, res) => {
     }
 });
 
-// OBTENER UNO POR ID
 router.get('/:id', verificarToken, async (req, res) => {
     try {
         const { id } = req.params;
@@ -38,7 +39,6 @@ router.get('/:id', verificarToken, async (req, res) => {
     }
 });
 
-// CREAR ADOPTANTE (Público - Para el formulario de registro)
 router.post('/', async (req, res) => {
     try {
         const { rut, nombre_completo, email, telefono, direccion, password } = req.body;
@@ -47,13 +47,19 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: "Faltan campos obligatorios para crear la cuenta básica" });
         }
 
+        if (rut && !validarFormatoRUT(rut)) {
+            return res.status(400).json({ error: "Formato de RUT inválido. Por favor, use el formato 12.345.678-9 o 12345678-9." });
+        }
+
+        const rutLimpio = rut ? rut.replace(/\./g, '') : null;
+
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
 
         const nuevoAdoptante = await db.query(
             `INSERT INTO Adoptantes (rut, nombre_completo, email, password_hash, telefono, direccion) 
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, nombre_completo, email`,
-            [rut || null, nombre_completo, email, password_hash, telefono || null, direccion || null]
+            [rutLimpio, nombre_completo, email, password_hash, telefono || null, direccion || null]
         );
 
         res.status(201).json({
@@ -70,7 +76,6 @@ router.post('/', async (req, res) => {
     }
 });
 
-// ACTUALIZAR ADOPTANTE
 router.put('/:id', verificarToken, async (req, res) => {
     try {
         const { id } = req.params;
@@ -88,7 +93,6 @@ router.put('/:id', verificarToken, async (req, res) => {
     }
 });
 
-// ELIMINAR ADOPTANTE
 router.delete('/:id', verificarToken, async (req, res) => {
     try {
         const { id } = req.params;
