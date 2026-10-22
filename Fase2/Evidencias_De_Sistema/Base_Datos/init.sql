@@ -31,7 +31,7 @@ CREATE TABLE Animales (
   sexo VARCHAR(20),
   edad varchar(50),
   fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  estado VARCHAR(50) DEFAULT 'Disponible',
+  estado VARCHAR(50) DEFAULT 'En adopción', -- Opciones: En adopción, Adoptado, No adoptable
   microchip VARCHAR(50) UNIQUE,
   foto varchar(255),
   historia text

@@ -219,17 +219,23 @@ export default function CatalogoMascotasRefugio() {
               >
                 {/* FOTO CON ETIQUETAS CORREGIDAS */}
                 <div className="relative h-64 overflow-hidden bg-pink-50">
-                  <img 
-                    src={
-                      animal.foto_url || animal.foto 
-                        ? (animal.foto_url || animal.foto).startsWith('http') 
+                  {animal.foto_url || animal.foto ? (
+                    <img 
+                      src={
+                        (animal.foto_url || animal.foto).startsWith('http') 
                           ? (animal.foto_url || animal.foto) 
-                          : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${animal.foto_url || animal.foto}` 
-                        : "https://images.unsplash.com/photo-1543466835-00a7907e9de1"
-                    } 
-                    alt={animal.nombre}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                  />
+                          : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${animal.foto_url || animal.foto}`
+                      } 
+                      alt={animal.nombre}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 group-hover:scale-105 transition duration-500">
+                      <span className="text-4xl mb-2">🐾</span>
+                      <span className="font-bold text-sm">Foto no disponible</span>
+                    </div>
+                  )}
+                  
                   <span className="absolute top-4 right-4 bg-white/90 backdrop-blur-md text-pink-600 text-xs font-extrabold px-3 py-1.5 rounded-full shadow-sm">
                     {animal.estado || 'Disponible'}
                   </span>
@@ -272,11 +278,25 @@ export default function CatalogoMascotasRefugio() {
             
             {/* CABECERA DEL MODAL */}
             <div className="relative h-72 bg-pink-100 shrink-0">
-              <img 
-                src={animalSeleccionado.foto_url || animalSeleccionado.foto ? (animalSeleccionado.foto_url || animalSeleccionado.foto).startsWith('http') ? (animalSeleccionado.foto_url || animalSeleccionado.foto) : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${animalSeleccionado.foto_url || animalSeleccionado.foto}` : "https://images.unsplash.com/photo-1543466835-00a7907e9de1"} 
-                alt={animalSeleccionado.nombre}
-                className="w-full h-full object-cover"
-              />
+              
+              {/* AQUÍ ESTÁ EL CAMBIO APLICADO AL MODAL */}
+              {animalSeleccionado.foto_url || animalSeleccionado.foto ? (
+                <img 
+                  src={
+                    (animalSeleccionado.foto_url || animalSeleccionado.foto).startsWith('http') 
+                      ? (animalSeleccionado.foto_url || animalSeleccionado.foto) 
+                      : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${animalSeleccionado.foto_url || animalSeleccionado.foto}`
+                  } 
+                  alt={animalSeleccionado.nombre}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400">
+                  <span className="text-6xl mb-2">🐾</span>
+                  <span className="font-bold text-lg">Foto no disponible</span>
+                </div>
+              )}
+
               <button 
                 onClick={() => setAnimalSeleccionado(null)}
                 className="absolute top-4 right-4 w-10 h-10 bg-white/80 backdrop-blur-md rounded-full text-slate-700 font-extrabold flex items-center justify-center hover:bg-white shadow-lg transition"

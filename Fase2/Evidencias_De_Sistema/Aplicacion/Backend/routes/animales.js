@@ -46,7 +46,7 @@ router.get('/catalogo/:refugio_id', async (req, res) => {
 
         // 2. Buscamos SOLO los animales que estén disponibles para adopción en esa fundación
         const animalesQuery = await db.query(
-            `SELECT * FROM Animales WHERE refugio_id = $1 AND estado = 'Disponible' ORDER BY fecha_ingreso DESC`,
+            `SELECT * FROM Animales WHERE refugio_id = $1 AND estado = 'En adopción' ORDER BY fecha_ingreso DESC`,
             [refugio_id]
         );
 
