@@ -6,15 +6,25 @@ import toast from 'react-hot-toast';
 export default function PerfilAdoptante() {
   const navigate = useNavigate();
   
-  // Inicialización perezosa para evitar llamadas síncronas a setState dentro de useEffect
+  // Inicialización perezosa para leer de localStorage de forma segura sin useEffect
   const [nombre, setNombre] = useState(() => {
-    const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
-    return usuarioGuardado.nombre_completo || '';
+    try {
+      const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
+      return usuarioGuardado.nombre_completo || '';
+    } catch (err) {
+      console.error("Error al leer usuario:", err);
+      return '';
+    }
   });
 
   const [telefono, setTelefono] = useState(() => {
-    const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
-    return usuarioGuardado.telefono || '';
+    try {
+      const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
+      return usuarioGuardado.telefono || '';
+    } catch (err) {
+      console.error("Error al leer teléfono:", err);
+      return '';
+    }
   });
 
   const [preferencia, setPreferencia] = useState(() => {
@@ -38,6 +48,11 @@ export default function PerfilAdoptante() {
 
     try {
       localStorage.setItem('preferencia_mascota', preferencia);
+
+      const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
+      usuarioGuardado.nombre_completo = nombre;
+      usuarioGuardado.telefono = telefono;
+      localStorage.setItem('usuario', JSON.stringify(usuarioGuardado));
 
       toast.success('¡Perfil e intereses actualizados! Redirigiendo...', { id: toastId });
 

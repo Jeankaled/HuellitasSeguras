@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function Login({ onNavigateToRegister }) {
+export default function Login({ onNavigateToRegister, onLoginSuccess }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,18 +52,27 @@ export default function Login({ onNavigateToRegister }) {
         localStorage.setItem('usuario', JSON.stringify(datos.usuario));
       }
 
-      // 🎯 Redirección dinámica robusta según el rol o tipo de cuenta
-      setTimeout(() => {
-        const esAdoptante = 
-          datos.usuario?.rol === 'adoptante' || 
-          datos.tipo === 'adoptante' || 
-          datos.rol === 'adoptante' ||
-          (!datos.usuario?.nombre_organizacion && !datos.usuario?.rut);
+      // ⚡ Notificamos a App.jsx para que actualice el estado del token
+      if (typeof onLoginSuccess === 'function' && datos.token) {
+        onLoginSuccess(datos.token);
+      }
 
-        if (esAdoptante) {
-          navigate('/fundaciones'); // 👈 Redirige al directorio de fundaciones si es adoptante
+      // 🎯 Redirección dinámica limpia y robusta según el rol
+      setTimeout(() => {
+        const rolUsuario = datos.usuario?.rol ? datos.usuario.rol.toLowerCase() : '';
+        
+        // Definimos explícitamente qué roles van al panel de gestión (Administradores / Staff / Fundación)
+        const esPersonalAdministrativo = 
+          rolUsuario === 'admin' || 
+          rolUsuario === 'administrador' || 
+          rolUsuario === 'staff' || 
+          rolUsuario === 'fundacion' ||
+          datos.usuario?.refugio_id != null; // Si tiene un refugio asociado, es parte del staff
+
+        if (esPersonalAdministrativo) {
+          navigate('/panel'); // 👈 Redirige al panel de administración
         } else {
-          navigate('/panel'); // 👈 Redirige al panel de administración si es fundación
+          navigate('/fundaciones'); // 👈 Redirige al catálogo/directorio si es adoptante
         }
       }, 1000);
 

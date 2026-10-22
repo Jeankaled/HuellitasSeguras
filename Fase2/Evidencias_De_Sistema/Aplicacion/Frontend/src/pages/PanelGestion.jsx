@@ -99,24 +99,33 @@ export default function PanelGestion({ onLogout }) {
           'Authorization': `Bearer ${token}`
         };
 
-        const [resAdoptantes, resAnimales, resRefugios] = await Promise.all([
+        // Usamos allSettled para evitar que una sola petición caída rompa todo el panel
+        const resultados = await Promise.allSettled([
           fetch(`${import.meta.env.VITE_API_URL}/adoptantes`, { headers }),
           fetch(`${import.meta.env.VITE_API_URL}/animales`, { headers }),
           fetch(`${import.meta.env.VITE_API_URL}/refugios`, { headers })
         ]);
 
-        if (resAdoptantes.status === 401 || resAnimales.status === 401) {
-          if (typeof onLogout === 'function') onLogout();
-          return;
+        // Procesar Adoptantes
+        let listaAdoptantes = [];
+        if (resultados[0].status === 'fulfilled' && resultados[0].value.ok) {
+          const datosAdoptantes = await resultados[0].value.json();
+          listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.data || datosAdoptantes.datos || datosAdoptantes.adoptantes || []);
         }
 
-        const datosAdoptantes = await resAdoptantes.json();
-        const datosAnimales = await resAnimales.json();
-        const datosRefugios = await resRefugios.json();
+        // Procesar Animales
+        let listaAnimales = [];
+        if (resultados[1].status === 'fulfilled' && resultados[1].value.ok) {
+          const datosAnimales = await resultados[1].value.json();
+          listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.data || datosAnimales.datos || datosAnimales.animales || []);
+        }
 
-        const listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.data || datosAdoptantes.datos || datosAdoptantes.adoptantes || []);
-        const listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.data || datosAnimales.datos || datosAnimales.animales || []);
-        const listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.data || datosRefugios.datos || datosRefugios.refugios || []);
+        // Procesar Refugios
+        let listaRefugios = [];
+        if (resultados[2].status === 'fulfilled' && resultados[2].value.ok) {
+          const datosRefugios = await resultados[2].value.json();
+          listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.data || datosRefugios.datos || datosRefugios.refugios || []);
+        }
 
         setAdoptantes(listaAdoptantes);
         setAnimales(listaAnimales);
@@ -126,7 +135,7 @@ export default function PanelGestion({ onLogout }) {
           setSeleccionado(listaAdoptantes[0]);
         }
 
-        // --- LÓGICA CORREGIDA DEL NOMBRE DE LA ORGANIZACIÓN ---
+        // --- LÓGICA DEL NOMBRE DE LA ORGANIZACIÓN ---
         if (usuarioGuardado.organizacion) {
           setNombreOrganizacion(usuarioGuardado.organizacion);
         } else {
@@ -146,6 +155,7 @@ export default function PanelGestion({ onLogout }) {
           }
         }
       } catch (err) {
+        console.error("Error al cargar datos del panel:", err);
         setError(err.message);
       } finally {
         setLoading(false);

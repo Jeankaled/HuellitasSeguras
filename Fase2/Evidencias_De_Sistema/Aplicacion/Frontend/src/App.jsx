@@ -11,11 +11,33 @@ import PreferenciasAdoptante from './pages/PreferenciasAdoptante';
 import PerfilAdoptante from './pages/PerfilAdoptante';
 import DirectorioFundaciones from './pages/DirectorioFundaciones';
 import CatalogoMascotasRefugio from './pages/CatalogoMascotasRefugio';
-function App() {
+
+// Función auxiliar para determinar la ruta por defecto según el rol del usuario
+const obtenerRutaPorRol = () => {
+  const token = localStorage.getItem('token');
+  if (!token) return '/login';
   
+  try {
+    const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+    const rol = usuario.rol ? usuario.rol.toLowerCase() : '';
+    
+    const esPersonalAdministrativo = 
+      rol === 'admin' || 
+      rol === 'administrador' || 
+      rol === 'staff' || 
+      rol === 'fundacion' || 
+      usuario.refugio_id != null;
+
+    return esPersonalAdministrativo ? '/panel' : '/fundaciones';
+  } catch {
+    return '/panel';
+  }
+};
+
+function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Actualiza el estado en memoria para dar paso al panel
+  // Actualiza el estado en memoria para dar paso al panel o fundaciones
   const handleLoginSuccess = (nuevoToken) => {
     setToken(nuevoToken);
   };
@@ -24,8 +46,11 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
-    setToken(null);
+    localStorage.removeItem('preferencia_mascota');
+    setToken(null); // 👈 Esto le avisa a React que ya no hay sesión activa
   };
+
+  const rutaPorDefecto = obtenerRutaPorRol();
 
   return (
     <Router>
@@ -33,19 +58,19 @@ function App() {
       <Toaster position="top-center" /> 
       
       <Routes>
-        {/* 1. La ruta raíz redirige lógicamente */}
-        <Route path="/" element={<Navigate to={token ? "/panel" : "/login"} replace />} />
+        {/* 1. La ruta raíz redirige lógicamente según el rol */}
+        <Route path="/" element={<Navigate to={token ? rutaPorDefecto : "/login"} replace />} />
 
         {/* 2. Ruta explícita de Login */}
         <Route 
           path="/login" 
-          element={token ? <Navigate to="/panel" replace /> : <Login onLoginSuccess={handleLoginSuccess} />} 
+          element={token ? <Navigate to={rutaPorDefecto} replace /> : <Login onLoginSuccess={handleLoginSuccess} />} 
         />
 
         {/* 3. Ruta de Registro */}
         <Route 
           path="/registro" 
-          element={token ? <Navigate to="/panel" replace /> : <Registro />} 
+          element={token ? <Navigate to={rutaPorDefecto} replace /> : <Registro />} 
         />
         
         {/* 4. Ruta Protegida del Panel */}
@@ -75,7 +100,7 @@ function App() {
         {/* 8. Comodín: Captura rutas rotas (SIEMPRE AL FINAL) */}
         <Route 
           path="*" 
-          element={<Navigate to={token ? "/panel" : "/login"} replace />} 
+          element={<Navigate to={token ? rutaPorDefecto : "/login"} replace />} 
         />
         <Route path="/preferencias-adoptante" element={<PreferenciasAdoptante />} 
         />
@@ -85,6 +110,8 @@ function App() {
         <Route path="/fundaciones" element={<DirectorioFundaciones />} /> 
 
         <Route path="/catalogo-adoptante" element={<CatalogoMascotasRefugio />} />
+
+        <Route path="/fundaciones" element={<DirectorioFundaciones onLogout={handleLogout} />} />
       </Routes>
     </Router>
   );

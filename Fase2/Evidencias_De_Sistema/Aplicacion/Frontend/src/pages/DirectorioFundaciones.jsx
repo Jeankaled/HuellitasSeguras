@@ -34,7 +34,7 @@ export default function DirectorioFundaciones() {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     localStorage.removeItem('preferencia_mascota');
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   const fundacionesFiltradas = Array.isArray(fundaciones) ? fundaciones.filter((f) =>
@@ -112,105 +112,111 @@ export default function DirectorioFundaciones() {
           </div>
         </div>
 
-        {/* Tarjetas de Fundaciones */}
-        {/* Tarjetas de Fundaciones */}
-{cargando ? (
-  <div className="text-center py-24 text-pink-400 font-bold text-lg animate-pulse flex flex-col items-center gap-3">
-    <span className="text-4xl">🐶🐱</span>
-    Cargando fundaciones con mucho amor...
-  </div>
-) : fundacionesFiltradas.length === 0 ? (
-  <div className="text-center py-16 bg-white/80 backdrop-blur-sm rounded-[2.5rem] border-2 border-pink-100 shadow-xl max-w-md mx-auto p-8">
-    <div className="text-5xl mb-3">😿</div>
-    <p className="font-bold text-slate-700 text-lg">No se encontraron fundaciones</p>
-    <p className="text-xs text-slate-400 mt-1">Intenta buscando con otro término.</p>
-  </div>
-) : (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-    {fundacionesFiltradas.map((fundacion) => {
-      // Color dinámico de la fundación (con respaldo por defecto)
-      const colorBase = fundacion.color_principal || '#F472B6';
-
-      return (
-        <div
-          key={fundacion.id || fundacion._id}
-          className="bg-white/95 backdrop-blur-sm rounded-[2.5rem] shadow-xl hover:shadow-2xl transition-all duration-300 border-2 overflow-hidden flex flex-col justify-between group hover:-translate-y-2"
-          style={{ borderColor: `${colorBase}40` }}
-        >
-          <div>
-            {/* Encabezado con el color principal de la fundación */}
-            <div
-              className="h-28 p-5 relative flex items-center justify-between"
-              style={{ backgroundColor: colorBase }}
-            >
-              <div className="absolute inset-0 bg-black/5"></div>
-              <div className="w-20 h-20 rounded-3xl bg-white p-2.5 shadow-lg border-4 border-white flex items-center justify-center absolute -bottom-8 left-6 overflow-hidden group-hover:scale-105 transition-transform">
-                {fundacion.logo_url || fundacion.logo ? (
-                  <img
-                    src={fundacion.logo_url || fundacion.logo}
-                    alt={fundacion.nombre_organizacion}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <Building2 className="w-9 h-9" style={{ color: colorBase }} />
-                )}
+        {/* Tarjetas de Fundaciones con Skeletons de Carga */}
+        {cargando ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="bg-white/60 backdrop-blur-sm rounded-[2.5rem] border-2 border-pink-100 p-6 h-80 animate-pulse flex flex-col justify-between">
+                <div>
+                  <div className="h-24 bg-pink-100 rounded-2xl mb-6"></div>
+                  <div className="h-6 bg-slate-200 rounded-xl w-3/4 mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-100 rounded-lg w-full"></div>
+                    <div className="h-4 bg-slate-100 rounded-lg w-2/3"></div>
+                  </div>
+                </div>
+                <div className="h-12 bg-pink-100 rounded-2xl"></div>
               </div>
-            </div>
-
-            {/* Cuerpo de la tarjeta con datos dinámicos */}
-            <div className="pt-10 px-7 pb-6">
-              <h3 className="text-xl font-extrabold text-slate-800 mb-3">
-                {fundacion.nombre_organizacion}
-              </h3>
-
-              <div className="space-y-2.5 text-xs font-medium text-slate-600 mb-6">
-                {fundacion.direccion && (
-                  <div 
-                    className="flex items-center gap-2.5 p-2.5 rounded-xl transition-all"
-                    style={{ backgroundColor: `${colorBase}15` }}
-                  >
-                    <MapPin className="w-4 h-4 shrink-0" style={{ color: colorBase }} />
-                    <span className="truncate">{fundacion.direccion}</span>
-                  </div>
-                )}
-                {fundacion.telefono && (
-                  <div 
-                    className="flex items-center gap-2.5 p-2.5 rounded-xl transition-all"
-                    style={{ backgroundColor: `${colorBase}15` }}
-                  >
-                    <Phone className="w-4 h-4 shrink-0" style={{ color: colorBase }} />
-                    <span>{fundacion.telefono}</span>
-                  </div>
-                )}
-                {fundacion.email_contacto && (
-                  <div 
-                    className="flex items-center gap-2.5 p-2.5 rounded-xl transition-all"
-                    style={{ backgroundColor: `${colorBase}15` }}
-                  >
-                    <Mail className="w-4 h-4 shrink-0" style={{ color: colorBase }} />
-                    <span className="truncate">{fundacion.email_contacto}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            ))}
           </div>
-
-          {/* Botón dinámico con el color de la fundación */}
-          <div className="p-7 pt-0">
-            <button
-              onClick={() => navigate(`/catalogo-adoptante?fundacion=${fundacion.id || fundacion._id}`)}
-              className="w-full py-3.5 px-5 rounded-2xl font-extrabold text-white text-sm flex items-center justify-center gap-2 shadow-md transition-all hover:opacity-95 active:scale-95 group-hover:shadow-lg"
-              style={{ backgroundColor: colorBase }}
-            >
-              <span>Ver Mascotas Disponibles</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+        ) : fundacionesFiltradas.length === 0 ? (
+          <div className="text-center py-16 bg-white/80 backdrop-blur-sm rounded-[2.5rem] border-2 border-pink-100 shadow-xl max-w-md mx-auto p-8">
+            <div className="text-5xl mb-3">😿</div>
+            <p className="font-bold text-slate-700 text-lg">No se encontraron fundaciones</p>
+            <p className="text-xs text-slate-400 mt-1">Intenta buscando con otro término.</p>
           </div>
-        </div>
-      );
-    })}
-  </div>
-)}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {fundacionesFiltradas.map((fundacion) => {
+              const colorBase = fundacion.color_principal || '#F472B6';
+
+              return (
+                <div
+                  key={fundacion.id || fundacion._id}
+                  className="bg-white/95 backdrop-blur-sm rounded-[2.5rem] shadow-xl hover:shadow-2xl transition-all duration-300 border-2 overflow-hidden flex flex-col justify-between group hover:-translate-y-2"
+                  style={{ borderColor: `${colorBase}40` }}
+                >
+                  <div>
+                    <div
+                      className="h-28 p-5 relative flex items-center justify-between"
+                      style={{ backgroundColor: colorBase }}
+                    >
+                      <div className="absolute inset-0 bg-black/5"></div>
+                      <div className="w-20 h-20 rounded-3xl bg-white p-2.5 shadow-lg border-4 border-white flex items-center justify-center absolute -bottom-8 left-6 overflow-hidden group-hover:scale-105 transition-transform">
+                        {fundacion.logo_url || fundacion.logo ? (
+                          <img
+                            src={fundacion.logo_url || fundacion.logo}
+                            alt={fundacion.nombre_organizacion}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <Building2 className="w-9 h-9" style={{ color: colorBase }} />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-10 px-7 pb-6">
+                      <h3 className="text-xl font-extrabold text-slate-800 mb-3">
+                        {fundacion.nombre_organizacion}
+                      </h3>
+
+                      <div className="space-y-2.5 text-xs font-medium text-slate-600 mb-6">
+                        {fundacion.direccion && (
+                          <div 
+                            className="flex items-center gap-2.5 p-2.5 rounded-xl transition-all"
+                            style={{ backgroundColor: `${colorBase}15` }}
+                          >
+                            <MapPin className="w-4 h-4 shrink-0" style={{ color: colorBase }} />
+                            <span className="truncate">{fundacion.direccion}</span>
+                          </div>
+                        )}
+                        {fundacion.telefono && (
+                          <div 
+                            className="flex items-center gap-2.5 p-2.5 rounded-xl transition-all"
+                            style={{ backgroundColor: `${colorBase}15` }}
+                          >
+                            <Phone className="w-4 h-4 shrink-0" style={{ color: colorBase }} />
+                            <span>{fundacion.telefono}</span>
+                          </div>
+                        )}
+                        {fundacion.email_contacto && (
+                          <div 
+                            className="flex items-center gap-2.5 p-2.5 rounded-xl transition-all"
+                            style={{ backgroundColor: `${colorBase}15` }}
+                          >
+                            <Mail className="w-4 h-4 shrink-0" style={{ color: colorBase }} />
+                            <span className="truncate">{fundacion.email_contacto}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-7 pt-0">
+                    <button
+                      onClick={() => navigate(`/catalogo-adoptante?fundacion=${fundacion.id || fundacion._id}`)}
+                      className="w-full py-3.5 px-5 rounded-2xl font-extrabold text-white text-sm flex items-center justify-center gap-2 shadow-md transition-all hover:opacity-95 active:scale-95 group-hover:shadow-lg"
+                      style={{ backgroundColor: colorBase }}
+                    >
+                      <span>Ver Mascotas Disponibles</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </main>
     </div>
   );
