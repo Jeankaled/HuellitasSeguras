@@ -11,6 +11,7 @@ import PreferenciasAdoptante from './pages/PreferenciasAdoptante';
 import PerfilAdoptante from './pages/PerfilAdoptante';
 import DirectorioFundaciones from './pages/DirectorioFundaciones';
 import CatalogoMascotasRefugio from './pages/CatalogoMascotasRefugio';
+import FormularioAdopcion from './pages/FormularioAdopcion';
 
 // Función auxiliar para determinar la ruta por defecto según el rol del usuario
 const obtenerRutaPorRol = () => {
@@ -112,6 +113,8 @@ function App() {
         <Route path="/catalogo-adoptante" element={<CatalogoMascotasRefugio />} />
 
         <Route path="/fundaciones" element={<DirectorioFundaciones onLogout={handleLogout} />} />
+
+        <Route path="/formulario-adopcion" element={<FormularioAdopcion />} />
       </Routes>
     </Router>
   );

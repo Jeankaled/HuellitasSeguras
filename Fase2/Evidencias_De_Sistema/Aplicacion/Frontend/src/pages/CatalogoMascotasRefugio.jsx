@@ -74,6 +74,20 @@ export default function CatalogoMascotasRefugio() {
     }
   };
 
+  // Función para redirigir al formulario de adopción de forma segura
+  const handleQuieroAdoptar = () => {
+    if (!animalSeleccionado) return;
+    
+    // Soportar tanto 'id' como '_id' (por si tu BD es MongoDB)
+    const idMascota = animalSeleccionado.id || animalSeleccionado._id;
+    
+    // Cerrar el modal antes de navegar
+    setAnimalSeleccionado(null);
+    
+    // Redirigir a la vista del formulario
+    navigate(`/formulario-adopcion?mascotaId=${idMascota}&mascotaNombre=${animalSeleccionado.nombre}`);
+  };
+
   // 1. Filtrado dinámico mejorado y normalizado
   const animalesFiltrados = animales.filter(animal => {
     const coincideTexto = animal.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -278,8 +292,6 @@ export default function CatalogoMascotasRefugio() {
             
             {/* CABECERA DEL MODAL */}
             <div className="relative h-72 bg-pink-100 shrink-0">
-              
-              {/* AQUÍ ESTÁ EL CAMBIO APLICADO AL MODAL */}
               {animalSeleccionado.foto_url || animalSeleccionado.foto ? (
                 <img 
                   src={
@@ -305,7 +317,7 @@ export default function CatalogoMascotasRefugio() {
               </button>
               <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-sm">
                 <h2 className="text-2xl font-extrabold text-slate-800">{animalSeleccionado.nombre}</h2>
-                <p className="text-xs font-bold text-pink-600">{animalSeleccionado.especie} - {animalSeleccionado.raza || 'Mestizo'}</p>
+                <p className="text-xs font-bold text-pink-600">{animalSeleccionado.especie} • {animalSeleccionado.raza || 'Mestizo'}</p>
               </div>
             </div>
 
@@ -376,11 +388,11 @@ export default function CatalogoMascotasRefugio() {
                 Cerrar
               </button>
               <button 
-                onClick={() => alert(`¡Solicitud iniciada para adoptar a ${animalSeleccionado.nombre}! Pronto ${refugio?.nombre_organizacion || 'la fundación'} se contactará contigo.`)}
-                className="px-6 py-3 rounded-2xl text-white font-extrabold text-sm shadow-lg transition flex items-center gap-2"
-                style={{ backgroundColor: colorPrimario }}
+                onClick={handleQuieroAdoptar}
+                className="px-6 py-3 bg-emerald-400 hover:bg-emerald-500 text-white font-bold rounded-2xl flex items-center gap-2 shadow-md transition"
               >
-                <Heart className="w-4 h-4 fill-white" /> ¡Quiero Adoptar!
+                <Heart className="w-5 h-5 fill-white" />
+                ¡Quiero Adoptar!
               </button>
             </div>
 
