@@ -80,10 +80,13 @@ CREATE TABLE Postulaciones (
   refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
   fecha_postulacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   estado_postulacion VARCHAR(50) DEFAULT 'En Revisión', -- Opciones: En Revisión, Aprobada, Rechazada
-  
   foto_cedula_url VARCHAR(255),
   foto_domicilio_url VARCHAR(255),
   comprobante_ingresos_url VARCHAR(255),
-  
-  acepta_tratamiento_datos BOOLEAN NOT NULL DEFAULT FALSE
+  acepta_tratamiento_datos BOOLEAN NOT NULL DEFAULT FALSE,
+  tipo_vivienda VARCHAR(100),
+  composicion_hogar VARCHAR(255),
+  otras_mascotas VARCHAR(255),
+  tiempo_solas VARCHAR(100),
+  motivacion TEXT
 );
