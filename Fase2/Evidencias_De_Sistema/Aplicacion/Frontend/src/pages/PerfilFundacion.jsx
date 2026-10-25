@@ -125,7 +125,7 @@ function PerfilFundacion() {
       formData.append('tema', JSON.stringify(tema));
       
       if (archivoFoto) {
-        formData.append('foto_perfil', archivoFoto);
+        formData.append('logo', archivoFoto);
       }
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/refugios/${usuarioGuardado.refugio_id || usuarioGuardado.id}`, {

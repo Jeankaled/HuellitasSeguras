@@ -50,6 +50,51 @@ router.get('/', async (req, res) => {
     }
 });
 
+router.get('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        let query = "";
+        let params = [];
+
+        if (req.usuario.rol === 'Adoptante') {
+            query = `
+                SELECT p.*, 
+                       a.nombre AS nombre_animal, a.especie AS especie_animal, a.foto AS foto_animal,
+                       r.nombre_organizacion AS nombre_refugio
+                FROM Postulaciones p
+                LEFT JOIN Animales a ON p.animal_id = a.id
+                LEFT JOIN Refugios r ON p.refugio_id = r.id
+                WHERE p.id = $1 AND p.adoptante_id = $2;
+            `;
+            params = [id, req.usuario.id];
+        } else {
+            query = `
+                SELECT p.*, 
+                       a.nombre AS nombre_animal, a.especie AS especie_animal, a.foto AS foto_animal,
+                       ad.nombre_completo AS nombre_adoptante, ad.rut AS rut_adoptante,
+                       ad.email AS correo_adoptante, ad.telefono AS telefono_adoptante, ad.direccion AS direccion_adoptante
+                FROM Postulaciones p
+                LEFT JOIN Animales a ON p.animal_id = a.id
+                LEFT JOIN Adoptantes ad ON p.adoptante_id = ad.id
+                WHERE p.id = $1 AND p.refugio_id = $2;
+            `;
+            params = [id, req.usuario.refugio_id];
+        }
+
+        const resultado = await db.query(query, params);
+
+        if (resultado.rowCount === 0) {
+            return res.status(404).json({ error: "Postulación no encontrada o no tienes permisos para verla" });
+        }
+
+        res.json({ mensaje: "Detalle de postulación obtenido", datos: resultado.rows[0] });
+    } catch (error) {
+        console.error("Error al obtener la postulación por ID:", error);
+        res.status(500).json({ error: "Error interno al consultar la postulación" });
+    }
+});
+
+
 router.post('/', async (req, res) => {
     try {
         const { mascota_id, tipo_vivienda, composicion_hogar, otras_mascotas, tiempo_solas, motivacion } = req.body;

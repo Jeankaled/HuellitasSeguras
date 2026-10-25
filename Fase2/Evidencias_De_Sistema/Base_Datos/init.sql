@@ -5,6 +5,7 @@ CREATE TABLE Refugios (
   direccion VARCHAR(255),
   email_contacto VARCHAR(150),
   telefono VARCHAR(20),
+  historia TEXT,
   fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   logo_url VARCHAR(255),
   color_principal VARCHAR(7),
