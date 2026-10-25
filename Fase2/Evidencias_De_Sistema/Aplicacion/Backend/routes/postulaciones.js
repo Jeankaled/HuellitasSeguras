@@ -53,6 +53,11 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        
+        if (isNaN(id) || id === 'undefined') {
+            return res.status(400).json({ error: "ID de postulación no válido o ausente" });
+        }
+
         let query = "";
         let params = [];
 

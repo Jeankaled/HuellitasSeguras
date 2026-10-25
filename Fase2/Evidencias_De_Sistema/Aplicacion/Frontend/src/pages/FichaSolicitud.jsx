@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  CheckCircle, 
-  XCircle, 
-  FileText, 
-  Home, 
-  ClipboardList, 
+import {
+  ArrowLeft,
+  CheckCircle,
+  XCircle,
+  FileText,
+  Home,
+  ClipboardList,
   Clock,
   Download,
   MapPin,
@@ -19,18 +19,20 @@ export default function FichaSolicitud() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Estados
   const [tabActiva, setTabActiva] = useState('formulario');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [solicitud, setSolicitud] = useState(null);
 
-  // Tema de la fundación
   const [tema, setTema] = useState({ principal: '#F9A8D4', secundario: '#93C5FD' });
 
   useEffect(() => {
     const cargarFicha = async () => {
       try {
+        if (!id || id === 'undefined') {
+          throw new Error("El ID de la solicitud es inválido. Vuelve a la bandeja de entrada.");
+        }
+
         const token = localStorage.getItem('token');
         const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
 
@@ -46,8 +48,7 @@ export default function FichaSolicitud() {
           });
         }
 
-        // 1. CAMBIO AQUÍ: Ahora apuntamos a la ruta de contratos
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/contratos/${id}`, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/postulaciones/${id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -55,39 +56,38 @@ export default function FichaSolicitud() {
           }
         });
 
+        const data = await res.json();
+
         if (!res.ok) {
-          throw new Error('No se pudo cargar la información de esta solicitud.');
+          throw new Error(data.error || 'No se pudo cargar la información de esta solicitud.');
         }
 
-        // 2. CAMBIO AQUÍ: El backend devuelve el objeto del contrato directo en esta ruta
-        const contrato = await res.json(); 
+        const post = data.datos;
 
-        // 3. CAMBIO AQUÍ: Mapeamos usando los nombres exactos que enviará el backend
         setSolicitud({
-          id: contrato.id,
-          estado: contrato.estado_firma || 'Pendiente',
+          id: post.id,
+          estado: post.estado_postulacion || 'Pendiente',
           postulante: {
-            nombre: contrato.nombre_adoptante || 'Sin Nombre',
-            rut: contrato.rut_adoptante || '',
-            telefono: contrato.telefono_adoptante || '',
-            correo: contrato.correo_adoptante || '',
-            ciudad: 'No especificada', 
-            avatar: (contrato.nombre_adoptante || 'A').charAt(0).toUpperCase()
+            nombre: post.nombre_adoptante || 'Sin Nombre',
+            rut: post.rut_adoptante || '',
+            telefono: post.telefono_adoptante || '',
+            correo: post.correo_adoptante || '',
+            ciudad: post.direccion_adoptante || 'No especificada',
+            avatar: (post.nombre_adoptante || 'A').charAt(0).toUpperCase()
           },
           mascota: {
-            nombre: contrato.nombre_animal || 'No especificada',
-            especie: contrato.especie_animal || 'No especificada',
-            foto: contrato.foto_animal || ''
+            nombre: post.nombre_animal || 'No especificada',
+            especie: post.especie_animal || 'No especificada',
+            foto: post.foto_animal || ''
           },
           respuestas: {
-             tipo_vivienda: 'No especificado',
-             composicion_hogar: 'No especificado',
-             otras_mascotas: 'No especificado',
-             tiempo_solas: 'No especificado',
-             motivacion: 'No especificada'
+             tipo_vivienda: post.tipo_vivienda || 'No especificado',
+             composicion_hogar: post.composicion_hogar || 'No especificado',
+             otras_mascotas: post.otras_mascotas || 'No especificado',
+             tiempo_solas: post.tiempo_solas || 'No especificado',
+             motivacion: post.motivacion || 'No especificada'
           },
-          // Si el contrato tiene un PDF (como inyectamos en el seeder), aparecerá aquí
-          documentos: contrato.pdf_url ? [{ nombre: 'Contrato Legal de Adopción', url: contrato.pdf_url, fecha: 'Reciente' }] : [],
+          documentos: post.foto_cedula_url ? [{ nombre: 'Cédula de Identidad', url: post.foto_cedula_url, fecha: 'Reciente' }] : [],
           historial: []
         });
 
@@ -101,7 +101,6 @@ export default function FichaSolicitud() {
 
     cargarFicha();
   }, [id, navigate]);
-
   if (cargando) {
     return (
       <div className="min-h-screen flex items-center justify-center font-bold text-slate-500 bg-slate-50">

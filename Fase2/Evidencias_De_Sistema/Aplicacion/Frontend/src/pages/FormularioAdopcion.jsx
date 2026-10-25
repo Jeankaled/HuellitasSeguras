@@ -60,7 +60,7 @@ export default function FormularioAdopcion() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/solicitudes`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/postulaciones`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
