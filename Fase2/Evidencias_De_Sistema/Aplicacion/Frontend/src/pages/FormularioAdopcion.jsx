@@ -220,6 +220,21 @@ export default function FormularioAdopcion() {
               ></textarea>
             </div>
 
+            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-sm">
+    <label className="flex items-start gap-3 cursor-pointer">
+      <input type="checkbox" required className="mt-1 w-4 h-4 rounded text-pink-500 focus:ring-pink-500" />
+      <span className="text-slate-600">
+        Declaro que los datos proporcionados son fidedignos y autorizo su tratamiento conforme a la <strong>Ley 19.799 sobre Documentos Electrónicos y Firma Electrónica</strong>.
+      </span>
+    </label>
+    <label className="flex items-start gap-3 cursor-pointer">
+      <input type="checkbox" required className="mt-1 w-4 h-4 rounded text-pink-500 focus:ring-pink-500" />
+      <span className="text-slate-600">
+        Me comprometo a cumplir con las normativas de tenencia responsable de mascotas exigidas por la <strong>Ley 21.020 (Ley Cholito)</strong> y los protocolos de la fundación.
+      </span>
+    </label>
+  </div>
+
             {/* Botón Enviar con los colores de la fundación */}
             <button
               type="submit"
