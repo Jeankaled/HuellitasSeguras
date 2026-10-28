@@ -593,21 +593,25 @@ export default function PanelGestion({ onLogout }) {
 </section>
 
             {seleccionado && (
-              <section className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden flex flex-col h-full min-h-[70vh]">
-                <div className="rounded-4xl p-6 flex justify-between items-center mb-8 bg-opacity-10 border" style={{ backgroundColor: `${tema.secundario}20`, borderColor: `${tema.secundario}40` }}>
-                  <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold shadow-sm" style={{ color: tema.principal }}>
-                      {seleccionado?.nombre_completo ? seleccionado.nombre_completo.charAt(0).toUpperCase() : '?'}
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-extrabold text-slate-800">{seleccionado?.nombre_completo || 'Sin Nombre'}</h2>
-                      <p className="font-medium mt-1" style={{ color: tema.secundario }}>RUT: {seleccionado?.rut || 'Sin RUT'}</p>
-                    </div>
-                  </div>
-                  <div className="bg-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm flex items-center gap-2" style={{ color: tema.principal }}>
-                    <span>🐾</span> Postula por Mascota
-                  </div>
-                </div>
+  <section className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden flex flex-col h-full min-h-[70vh]">
+    <div className="rounded-4xl p-6 flex justify-between items-center mb-8 bg-opacity-10 border" style={{ backgroundColor: `${tema.secundario}20`, borderColor: `${tema.secundario}40` }}>
+      <div className="flex items-center gap-5">
+        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold shadow-sm" style={{ color: tema.principal }}>
+          {/* 1️⃣ Cambiado a nombre_adoptante con respaldo */}
+          {(seleccionado?.nombre_adoptante || seleccionado?.nombre_completo) ? (seleccionado.nombre_adoptante || seleccionado.nombre_completo).charAt(0).toUpperCase() : '?'}
+        </div>
+        <div>
+          {/* 2️⃣ Cambiado a nombre_adoptante */}
+          <h2 className="text-2xl font-extrabold text-slate-800">{seleccionado?.nombre_adoptante || seleccionado?.nombre_completo || 'Sin Nombre'}</h2>
+          {/* 3️⃣ Cambiado para buscar rut, rut_adoptante o rut_persona por si el backend usa otro nombre */}
+          <p className="font-medium mt-1" style={{ color: tema.secundario }}>RUT: {seleccionado?.rut || seleccionado?.rut_adoptante || seleccionado?.rut_persona || 'Sin RUT'}</p>
+        </div>
+      </div>
+      <div className="bg-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm flex items-center gap-2" style={{ color: tema.principal }}>
+        {/* 4️⃣ Muestra dinámicamente el nombre de la mascota */}
+        <span>🐾</span> Postula por {seleccionado?.nombre_animal || 'Mascota'}
+      </div>
+    </div>
                 <div className="grid grid-cols-3 gap-4 mb-8">
                   {[1, 2, 3].map((num) => (
                     <div key={num} className="h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition cursor-pointer hover:opacity-80" style={{ borderColor: `${tema.principal}50`, backgroundColor: `${tema.principal}10`, color: tema.principal }}>
