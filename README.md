@@ -1,10 +1,20 @@
 #  Huellitas Seguras - Plataforma SaaS Multi-Tenant
 
-Plataforma orientada a fundaciones y refugios de animales para centralizar el historial clínico y formalizar adopciones. Este proyecto contiene la arquitectura completa (Frontend, Backend y Base de Datos) separada en módulos independientes.
+## 1. Descripción del proyecto
+
+"Huellita Segura" es una plataforma SaaS (Software como Servicio) con arquitectura Multi-Tenant orientada a fundaciones, refugios de animales y municipalidades en Chile. La solución resuelve la gestión administrativa informal y la falta de trazabilidad en las adopciones, actuando como el puente tecnológico que hace viable la Ley 21.020 (Ley Cholito) y la Ley 19.799. Centraliza el historial clínico de las mascotas y formaliza el proceso de adopción mediante la generación automática de contratos digitales con validación de identidad (KYC ligero) y Firma Electrónica Simple (FES), entregando a las organizaciones respaldo legal ante posibles casos de maltrato o abandono.
+---
+## 2. Tecnologías utilizadas
+- **Lenguajes:** JavaScript, SQL.   
+
+- **Frameworks / Librerías:** React, Vite, TailwindCSS (Frontend) / Node.js, Express, Bcrypt, JWT, Multer (Backend). 
+
+- **Base de datos**: PostgreSQL 15.   
+
+- **Cloud / Infraestructura:** Docker, Docker Compose (para orquestación local) y AWS (para despliegue en producción)
 
 ---
-
-##  1. Prerrequisitos del Sistema
+##  3. Prerrequisitos del Sistema
 
 Para poder levantar este proyecto en tu computadora local, es **estrictamente necesario** que tengas instalados los siguientes programas:
 
@@ -15,7 +25,7 @@ Para poder levantar este proyecto en tu computadora local, es **estrictamente ne
 
 ---
 
-##  2. Guía de Instalación y Ejecución Paso a Paso
+##  4. Guía de Instalación y Ejecución Paso a Paso
 
 ### Paso 1: Descargar el proyecto
 Abre tu terminal, posiciónate donde deseas guardar el proyecto y ejecuta:
@@ -93,7 +103,7 @@ npm run dev
 ```
 (La terminal te dará una ruta local, generalmente http://localhost:5173. Ábrela en tu navegador).
 
-## 3. Credenciales de Prueba (Testing)
+## 4. Credenciales de Prueba (Testing)
 
 Si ejecutaste el comando node seeder.js en el Paso 3, tu base de datos ya está poblada. Ve al navegador (al enlace del Frontend) e inicia sesión con cualquiera de estos dos perfiles Multi-Tenant:
 ##
@@ -108,3 +118,30 @@ Refugio 2 (Pequeñas Huellas):
 Usuario: admin@pequenas.cl
 
 Clave: admin123
+
+---
+
+## 5. Integrantes del equipo y roles
+| Integrante | Rol |
+|---|---|
+| Ávila, Jean  | Backend Developer / Product Owner |
+| Quezada, Bárbara |	Frontend Developer / Scrum Master | 
+
+---
+## 6. Metodología de trabajo
+
+Utilizamos Metodología Ágil basada en el marco de trabajo Scrum, adaptado para un equipo de dos personas. Organizamos el desarrollo en iteraciones cortas (Sprints de 2 a 3 semanas) para asegurar entregas funcionales incrementales. Para la gestión del Product Backlog, tareas (En proceso, En rRevision, Entregado) y seguimiento del proyecto utilizamos el tablero Kanban de Trello. El control de versiones se gestiona con Git Flow en GitHub, utilizando ramas por característica (feature/) y protegiendo las ramas main y develop mediante Pull Requests.
+
+---
+## 7. Arquitectura de la solución
+
+El sistema opera bajo un modelo SaaS Multi-Tenant (multi-inquilino) que asegura la separación, integridad y privacidad de la información visual y de bases de datos entre las distintas organizaciones. Se divide en un Backend (API REST en Node.js) que centraliza la lógica de negocio, validaciones y generación de contratos, y un Frontend (SPA en React) enfocado en ser responsivo (Mobile-First). Ambas capas se comunican por JSON bajo protección de tokens JWT, mientras la persistencia relacional ocurre en un contenedor Docker con PostgreSQL, aislando la información de cada refugio mediante llaves foráneas (refugio_id).
+
+---
+## Sección de innovación (documento de cierre)
+
+- **¿Qué problema resuelve?** La informalidad administrativa y la falta de trazabilidad en las adopciones de animales en Chile. Las fundaciones operan con papel o Excel, lo que genera una desconexión legal con el Registro Nacional de Mascotas y pérdida del rastro de adoptantes, dificultando que las normativas de tenencia responsable se cumplan.
+- **¿Qué hace diferente a la solución?** No es un simple software de gestión veterinaria, sino una plataforma con enfoque probatorio y legal que incorpora el marco regulatorio nacional. Su arquitectura Multi-Tenant permite que organizaciones sin recursos alojen sus datos de forma segregada y segura, aplicando Firma Electrónica Simple (FES) apoyada en sellos de tiempo y códigos de un solo uso (OTP).
+- **¿Qué valor agrega?** Empodera a las organizaciones al estandarizar los requisitos de adopción (validación algorítmica de RUT, doble factor de contacto) y automatiza un "Botón Rojo": un módulo que genera expedientes legales completos e inmutables listos para que los refugios ejerzan su facultad de querellarse formalmente ante casos de abandono o maltrato animal.
+
+---
