@@ -9,10 +9,12 @@ import {
   ClipboardList, 
   Clock,
   Download,
-  MapPin,
   Phone,
   Mail,
-  User
+  User,
+  MessageCircle,
+  ShieldCheck,
+  ArrowRight
 } from 'lucide-react';
 
 export default function FichaSolicitud() {
@@ -46,8 +48,9 @@ export default function FichaSolicitud() {
           });
         }
 
-        // 1. CAMBIO AQUÍ: Ahora apuntamos a la ruta de contratos
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/contratos/${id}`, {
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+        const res = await fetch(`${apiBase}/postulaciones/${id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -59,35 +62,33 @@ export default function FichaSolicitud() {
           throw new Error('No se pudo cargar la información de esta solicitud.');
         }
 
-        // 2. CAMBIO AQUÍ: El backend devuelve el objeto del contrato directo en esta ruta
-        const contrato = await res.json(); 
+        const data = await res.json();
+        const post = data.datos || data;
 
-        // 3. CAMBIO AQUÍ: Mapeamos usando los nombres exactos que enviará el backend
         setSolicitud({
-          id: contrato.id,
-          estado: contrato.estado_firma || 'Pendiente',
+          id: post.id,
+          estado: post.estado_postulacion || 'En Revisión',
           postulante: {
-            nombre: contrato.nombre_adoptante || 'Sin Nombre',
-            rut: contrato.rut_adoptante || '',
-            telefono: contrato.telefono_adoptante || '',
-            correo: contrato.correo_adoptante || '',
-            ciudad: 'No especificada', 
-            avatar: (contrato.nombre_adoptante || 'A').charAt(0).toUpperCase()
+            nombre: post.nombre_adoptante || 'Sin Nombre',
+            rut: post.rut_adoptante || '',
+            telefono: post.telefono_adoptante || '',
+            correo: post.correo_adoptante || '',
+            ciudad: post.direccion_adoptante || 'No especificada', 
+            avatar: (post.nombre_adoptante || 'A').charAt(0).toUpperCase()
           },
           mascota: {
-            nombre: contrato.nombre_animal || 'No especificada',
-            especie: contrato.especie_animal || 'No especificada',
-            foto: contrato.foto_animal || ''
+            nombre: post.nombre_animal || 'No especificada',
+            especie: post.especie_animal || 'No especificada',
+            foto: post.foto_animal || ''
           },
           respuestas: {
-             tipo_vivienda: 'No especificado',
-             composicion_hogar: 'No especificado',
-             otras_mascotas: 'No especificado',
-             tiempo_solas: 'No especificado',
-             motivacion: 'No especificada'
+            tipo_vivienda: post.tipo_vivienda || 'No especificado',
+            composicion_hogar: post.composicion_hogar || 'No especificado',
+            otras_mascotas: post.otras_mascotas || 'No especificado',
+            tiempo_solas: post.tiempo_solas || 'No especificado',
+            motivacion: post.motivacion || 'No especificada'
           },
-          // Si el contrato tiene un PDF (como inyectamos en el seeder), aparecerá aquí
-          documentos: contrato.pdf_url ? [{ nombre: 'Contrato Legal de Adopción', url: contrato.pdf_url, fecha: 'Reciente' }] : [],
+          documentos: post.foto_cedula_url ? [{ nombre: 'Cédula de Identidad', url: post.foto_cedula_url, fecha: 'Reciente' }] : [],
           historial: []
         });
 
@@ -101,6 +102,48 @@ export default function FichaSolicitud() {
 
     cargarFicha();
   }, [id, navigate]);
+
+  // Función de avance de etapa con backend y notificación
+  const avanzarEtapaBackend = async (nuevaEtapa, nombreEtapaTexto) => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+      const res = await fetch(`${apiBase}/postulaciones/${solicitud.id}/etapa`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          estado: nombreEtapaTexto,
+          etapa_num: nuevaEtapa
+        })
+      });
+
+      if (res.ok) {
+        setTabActiva(nuevaEtapa);
+        setSolicitud(prev => ({ ...prev, estado: nombreEtapaTexto }));
+        alert(`¡Proceso actualizado! Se envió un correo de notificación a ${solicitud.postulante.nombre}. 📩`);
+      } else {
+        alert('Ocurrió un error al actualizar la etapa en el servidor.');
+      }
+    } catch (err) {
+      console.error("Error al avanzar etapa:", err);
+      // Si aún no creas el endpoint en el backend, avanzamos la pestaña localmente para probar
+      setTabActiva(nuevaEtapa);
+    }
+  };
+
+  // Generador de enlace de WhatsApp
+  const obtenerEnlaceWhatsApp = () => {
+    if (!solicitud?.postulante?.telefono) return '#';
+    const telefonoLimpio = solicitud.postulante.telefono.replace(/\D/g, '');
+    const mensaje = encodeURIComponent(
+      `Hola ${solicitud.postulante.nombre}, te contactamos desde la fundación de rescate animal por tu postulación para adoptar a ${solicitud.mascota.nombre}. ¿Cómo estás?`
+    );
+    return `https://wa.me/${telefonoLimpio}?text=${mensaje}`;
+  };
 
   if (cargando) {
     return (
@@ -150,24 +193,32 @@ export default function FichaSolicitud() {
                     {solicitud.estado}
                   </span>
                 </div>
-                <div className="text-slate-500 font-medium mt-1 flex gap-4 flex-wrap text-sm">
+                <div className="text-slate-500 font-medium mt-2 flex gap-4 flex-wrap text-sm items-center">
                   {solicitud.postulante.rut && (
                     <span className="flex items-center gap-1"><User className="w-4 h-4"/> RUT: {solicitud.postulante.rut}</span>
                   )}
                   {solicitud.postulante.telefono && (
-                    <span className="flex items-center gap-1"><Phone className="w-4 h-4"/> {solicitud.postulante.telefono}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1"><Phone className="w-4 h-4"/> {solicitud.postulante.telefono}</span>
+                      <a 
+                        href={obtenerEnlaceWhatsApp()} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1"
+                        title="Abrir chat de WhatsApp"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5"/> WhatsApp
+                      </a>
+                    </div>
                   )}
                   {solicitud.postulante.correo && (
                     <span className="flex items-center gap-1"><Mail className="w-4 h-4"/> {solicitud.postulante.correo}</span>
-                  )}
-                  {solicitud.postulante.ciudad && (
-                    <span className="flex items-center gap-1"><MapPin className="w-4 h-4"/> {solicitud.postulante.ciudad}</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Info Mascota y Botones */}
+            {/* Info Mascota y Botones de Acción Global */}
             <div className="flex items-center gap-6 border-l border-slate-200 pl-6 w-full lg:w-auto">
               <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
                 {solicitud.mascota.foto ? (
@@ -201,13 +252,13 @@ export default function FichaSolicitud() {
       {/* CONTENIDO Y PESTAÑAS */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-8 py-8">
         
-        {/* Navegación de Pestañas */}
+        {/* Navegación de Pestañas (Etapas secuenciales) */}
         <div className="flex gap-2 mb-8 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
           {[
-            { id: 'formulario', icon: Home, label: 'Formulario' },
-            { id: 'evaluacion', icon: ClipboardList, label: 'Evaluación y Notas' },
-            { id: 'documentos', icon: FileText, label: 'Documentos' },
-            { id: 'historial', icon: Clock, label: 'Historial' },
+            { id: 'formulario', icon: Home, label: '1. Formulario' },
+            { id: 'evaluacion', icon: ClipboardList, label: '2. Evaluación' },
+            { id: 'documentos', icon: FileText, label: '3. Documentos' },
+            { id: 'historial', icon: Clock, label: '4. Cierre y Contrato' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -223,132 +274,215 @@ export default function FichaSolicitud() {
           ))}
         </div>
 
-        {/* CONTENIDO DINÁMICO DE LAS PESTAÑAS */}
+        {/* CONTENIDO DINÁMICO POR ETAPAS */}
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
           
+          {/* ETAPA 1: FORMULARIO */}
           {tabActiva === 'formulario' && (
             <div className="space-y-8 animate-fadeIn">
-              <h2 className="text-xl font-extrabold text-slate-800 border-b border-slate-100 pb-4">Detalles del Hogar y Estilo de Vida</h2>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div>
+                  <h2 className="text-xl font-extrabold text-slate-800">Detalles del Hogar y Estilo de Vida</h2>
+                  <p className="text-sm text-slate-400 mt-0.5">Etapa 1: Verificación de información básica del postulante</p>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-100">
+                  <ShieldCheck className="w-4 h-4"/> Datos protegidos (Ley 19.799)
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Tipo de Vivienda</p>
                   <p className="font-medium text-slate-700 bg-slate-50 p-4 rounded-xl">
-                    {solicitud.respuestas.tipo_vivienda || 'No especificado'}
+                    {solicitud.respuestas.tipo_vivienda}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Composición del Hogar</p>
                   <p className="font-medium text-slate-700 bg-slate-50 p-4 rounded-xl">
-                    {solicitud.respuestas.composicion_hogar || 'No especificado'}
+                    {solicitud.respuestas.composicion_hogar}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Otras Mascotas</p>
                   <p className="font-medium text-slate-700 bg-slate-50 p-4 rounded-xl">
-                    {solicitud.respuestas.otras_mascotas || 'No especificado'}
+                    {solicitud.respuestas.otras_mascotas}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Tiempo a solas estimado</p>
                   <p className="font-medium text-slate-700 bg-slate-50 p-4 rounded-xl">
-                    {solicitud.respuestas.tiempo_solas || 'No especificado'}
+                    {solicitud.respuestas.tiempo_solas}
                   </p>
                 </div>
                 <div className="md:col-span-2">
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Motivación para adoptar</p>
                   <p className="font-medium text-slate-700 bg-slate-50 p-4 rounded-xl">
-                    {solicitud.respuestas.motivacion || 'No especificada'}
+                    {solicitud.respuestas.motivacion}
                   </p>
                 </div>
               </div>
+
+              {/* Botón Siguiente Etapa con Conexión Backend */}
+              <div className="flex justify-end pt-6 border-t border-slate-100">
+                <button
+                  onClick={() => avanzarEtapaBackend('evaluacion', 'En Evaluación')}
+                  className="px-6 py-3 rounded-xl text-white font-bold flex items-center gap-2 shadow-sm transition hover:opacity-90"
+                  style={{ backgroundColor: tema.principal }}
+                >
+                  Siguiente: Evaluación y Notas <ArrowRight className="w-5 h-5"/>
+                </button>
+              </div>
             </div>
           )}
 
+          {/* ETAPA 2: EVALUACIÓN Y NOTAS */}
           {tabActiva === 'evaluacion' && (
-            <div className="animate-fadeIn grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-800 mb-6">Checklist de Verificación</h2>
-                <div className="space-y-4">
-                  <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer">
-                    <input type="checkbox" className="w-5 h-5 rounded text-pink-500 focus:ring-pink-500" />
-                    <span className="font-medium text-slate-700">Entrevista telefónica realizada</span>
-                  </label>
-                  <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer">
-                    <input type="checkbox" className="w-5 h-5 rounded text-pink-500 focus:ring-pink-500" />
-                    <span className="font-medium text-slate-700">Visita domiciliaria aprobada</span>
-                  </label>
-                  <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer">
-                    <input type="checkbox" className="w-5 h-5 rounded text-pink-500 focus:ring-pink-500" />
-                    <span className="font-medium text-slate-700">Aprobación del comité</span>
-                  </label>
+            <div className="animate-fadeIn space-y-8">
+              <div className="border-b border-slate-100 pb-4">
+                <h2 className="text-xl font-extrabold text-slate-800">Evaluación y Pauta de Seguridad</h2>
+                <p className="text-sm text-slate-400 mt-0.5">Etapa 2: Validación de filtros de la fundación (Ley Cholito)</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="font-bold text-slate-700 mb-4">Checklist de Verificación</h3>
+                  <div className="space-y-4">
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition">
+                      <input type="checkbox" className="w-5 h-5 rounded text-pink-500 focus:ring-pink-500" />
+                      <span className="font-medium text-slate-700">Entrevista telefónica realizada</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition">
+                      <input type="checkbox" className="w-5 h-5 rounded text-pink-500 focus:ring-pink-500" />
+                      <span className="font-medium text-slate-700">Visita domiciliaria aprobada</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition">
+                      <input type="checkbox" className="w-5 h-5 rounded text-pink-500 focus:ring-pink-500" />
+                      <span className="font-medium text-slate-700">Aprobación del comité</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-700 mb-4">Notas Internas (Privado)</h3>
+                  <textarea 
+                    rows="5"
+                    className="w-full bg-amber-50 border border-amber-200 p-4 rounded-2xl text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                    placeholder="Escribe notas sobre la evaluación aquí..."
+                  ></textarea>
+                  <div className="flex justify-end mt-4">
+                    <button className="px-6 py-2 bg-amber-200 text-amber-800 font-bold rounded-xl hover:bg-amber-300 transition">
+                      Guardar Notas
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-800 mb-6">Notas Internas (Privado)</h2>
-                <textarea 
-                  rows="6"
-                  className="w-full bg-amber-50 border border-amber-200 p-4 rounded-2xl text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
-                  placeholder="Escribe notas sobre la evaluación aquí. Esto solo es visible para la fundación..."
-                ></textarea>
-                <div className="flex justify-end mt-4">
-                  <button className="px-6 py-2 bg-amber-200 text-amber-800 font-bold rounded-xl hover:bg-amber-300 transition">
-                    Guardar Notas
-                  </button>
-                </div>
+
+              {/* Botones de Navegación de Etapa */}
+              <div className="flex justify-between pt-6 border-t border-slate-100">
+                <button
+                  onClick={() => setTabActiva('formulario')}
+                  className="px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 transition"
+                >
+                  ← Volver a Formulario
+                </button>
+                <button
+                  onClick={() => avanzarEtapaBackend('documentos', 'Revisión de Documentos')}
+                  className="px-6 py-3 rounded-xl text-white font-bold flex items-center gap-2 shadow-sm transition hover:opacity-90"
+                  style={{ backgroundColor: tema.principal }}
+                >
+                  Siguiente: Documentos <ArrowRight className="w-5 h-5"/>
+                </button>
               </div>
             </div>
           )}
 
+          {/* ETAPA 3: DOCUMENTOS */}
           {tabActiva === 'documentos' && (
-            <div className="animate-fadeIn">
-              <h2 className="text-xl font-extrabold text-slate-800 mb-6">Archivos Adjuntos</h2>
+            <div className="animate-fadeIn space-y-8">
+              <div className="border-b border-slate-100 pb-4">
+                <h2 className="text-xl font-extrabold text-slate-800">Verificación de Identidad</h2>
+                <p className="text-sm text-slate-400 mt-0.5">Etapa 3: Revisión de cédula y certificados adjuntos</p>
+              </div>
+
               {solicitud.documentos.length === 0 ? (
-                <p className="text-slate-400 text-sm italic">No hay documentos adjuntos registrados para esta solicitud.</p>
+                <p className="text-slate-400 text-sm italic py-8 text-center bg-slate-50 rounded-2xl">
+                  No hay documentos adjuntos registrados para esta solicitud.
+                </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   {solicitud.documentos.map((doc, idx) => (
-                    <div key={idx} className="border border-slate-200 rounded-2xl p-6 flex flex-col items-center text-center gap-3 hover:border-slate-300 transition bg-slate-50">
+                    <div key={idx} className="border border-slate-200 rounded-2xl p-6 flex flex-col items-center text-center gap-3 bg-slate-50">
                       <div className="w-14 h-14 bg-white rounded-full shadow-sm flex items-center justify-center text-slate-400">
                         <FileText className="w-6 h-6"/>
                       </div>
                       <div>
-                        <p className="font-bold text-slate-700">{doc.nombre || 'Documento'}</p>
-                        <p className="text-xs font-medium text-slate-400">{doc.fecha ? `Subido: ${doc.fecha}` : ''}</p>
+                        <p className="font-bold text-slate-700">{doc.nombre}</p>
                       </div>
-                      {doc.url && (
-                        <a 
-                          href={doc.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="mt-2 w-full py-2 bg-white border border-slate-200 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2"
-                        >
-                          <Download className="w-4 h-4"/> Descargar
-                        </a>
-                      )}
+                      <a 
+                        href={doc.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="mt-2 w-full py-2 bg-white border border-slate-200 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2"
+                      >
+                        <Download className="w-4 h-4"/> Descargar
+                      </a>
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Botones de Navegación de Etapa */}
+              <div className="flex justify-between pt-6 border-t border-slate-100">
+                <button
+                  onClick={() => setTabActiva('evaluacion')}
+                  className="px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 transition"
+                >
+                  ← Volver a Evaluación
+                </button>
+                <button
+                  onClick={() => avanzarEtapaBackend('historial', 'Cierre y Contrato')}
+                  className="px-6 py-3 rounded-xl text-white font-bold flex items-center gap-2 shadow-sm transition hover:opacity-90"
+                  style={{ backgroundColor: tema.principal }}
+                >
+                  Siguiente: Cierre y Contrato <ArrowRight className="w-5 h-5"/>
+                </button>
+              </div>
             </div>
           )}
 
+          {/* ETAPA 4: HISTORIAL Y CIERRE */}
           {tabActiva === 'historial' && (
-            <div className="animate-fadeIn">
-              <h2 className="text-xl font-extrabold text-slate-800 mb-6">Registro de Actividad</h2>
-              {solicitud.historial.length === 0 ? (
-                <p className="text-slate-400 text-sm italic">No hay registros de actividad adicionales.</p>
-              ) : (
-                <div className="relative border-l-2 border-slate-200 ml-4 space-y-8 pb-4">
-                  {solicitud.historial.map((item, idx) => (
-                    <div key={idx} className="pl-6 relative">
-                      <div className="absolute w-4 h-4 bg-blue-400 rounded-full -left-[9px] top-1 border-2 border-white shadow-sm"></div>
-                      <p className="font-bold text-slate-700">{item.accion || item.titulo}</p>
-                      <p className="text-sm text-slate-500 mt-1">{item.descripcion}</p>
-                      {item.fecha && <p className="text-xs font-bold text-slate-400 mt-2">{item.fecha}</p>}
-                    </div>
-                  ))}
+            <div className="animate-fadeIn space-y-8">
+              <div className="border-b border-slate-100 pb-4">
+                <h2 className="text-xl font-extrabold text-slate-800">Historial y Aprobación Final</h2>
+                <p className="text-sm text-slate-400 mt-0.5">Etapa 4: Registro de actividad y emisión de contrato digital (Firma OTP)</p>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-3">
+                <div className="flex items-center gap-2 font-bold text-slate-700">
+                  <Clock className="w-5 h-5 text-slate-400"/> Registro de Actividad
                 </div>
-              )}
+                <p className="text-slate-600 text-sm">
+                  • Postulación recibida y en proceso de revisión de antecedentes.
+                </p>
+              </div>
+
+              {/* Botones de Navegación de Etapa */}
+              <div className="flex justify-between pt-6 border-t border-slate-100">
+                <button
+                  onClick={() => setTabActiva('documentos')}
+                  className="px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 transition"
+                >
+                  ← Volver a Documentos
+                </button>
+                <button 
+                  onClick={() => alert('¡Listo para aprobar y generar contrato!')}
+                  className="px-8 py-3 rounded-xl text-white font-bold flex items-center gap-2 shadow-md transition hover:opacity-90"
+                  style={{ backgroundColor: tema.principal }}
+                >
+                  <CheckCircle className="w-5 h-5"/> Aprobar Adopción y Generar Contrato
+                </button>
+              </div>
             </div>
           )}
 
