@@ -17,9 +17,16 @@ export default function Registro() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
+  // Estados para los Terminos y Leyes (Tickets obligatorios)
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
+  const [aceptaLeyes, setAceptaLeyes] = useState(false);
+
   // Datos Adoptante
   const [nombreAdoptante, setNombreAdoptante] = useState('');
   const [apellidoAdoptante, setApellidoAdoptante] = useState('');
+  const [rutAdoptante, setRutAdoptante] = useState('');
+  const [rutAdoptanteError, setRutAdoptanteError] = useState('');
+  const [direccionAdoptante, setDireccionAdoptante] = useState(''); // 📍 Estado para la dirección del adoptante
 
   // Datos Fundación
   const [nombreOrg, setNombreOrg] = useState('');
@@ -35,7 +42,7 @@ export default function Registro() {
 
   const [loading, setLoading] = useState(false);
 
-  // Formateador de RUT automático
+  // Formateador de RUT automático para Fundaciones
   const handleRutChange = (e) => {
     let value = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
     
@@ -61,7 +68,33 @@ export default function Registro() {
     setRutError('');
   };
 
-  // Validación Módulo 11 (RUT chileno)
+  // Formateador de RUT automático para Adoptantes
+  const handleRutAdoptanteChange = (e) => {
+    let value = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
+    
+    if (value.length === 0) {
+      setRutAdoptante('');
+      setRutAdoptanteError('');
+      return;
+    }
+
+    if (value.length > 9) {
+      value = value.slice(0, 9);
+    }
+
+    if (value.length > 1) {
+      let body = value.slice(0, -1);
+      let dv = value.slice(-1);
+      body = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      setRutAdoptante(`${body}-${dv}`);
+    } else {
+      setRutAdoptante(value);
+    }
+    
+    setRutAdoptanteError('');
+  };
+
+  // Validación Módulo 11 (RUT chileno real)
   const validateRUT = (rutInput) => {
     if (!rutInput) return false;
     const cleanRUT = rutInput.replace(/[^0-9K]/ig, '').toUpperCase();
@@ -98,6 +131,19 @@ export default function Registro() {
     if (password !== confirmPassword) {
       setPasswordError('Las contraseñas no coinciden');
       return;
+    }
+
+    // Validación de terminos y leyes obligatorios mediante los tickets
+    if (!aceptaTerminos || !aceptaLeyes) {
+      toast.error('Debes aceptar los Términos y Condiciones y las Leyes Chilenas vigentes para registrarte.');
+      return;
+    }
+
+    if (tipoCuenta === 'adoptante') {
+      if (!validateRUT(rutAdoptante)) {
+        setRutAdoptanteError('RUT inválido. Verifica el formato y dígito verificador.');
+        return;
+      }
     }
 
     if (tipoCuenta === 'fundacion') {
@@ -143,9 +189,11 @@ export default function Registro() {
       } else {
         const adoptanteData = {
           nombre_completo: `${nombreAdoptante} ${apellidoAdoptante}`,
+          rut: rutAdoptante,
           email: correo,
           password: password,
-          telefono: telefono
+          telefono: telefono,
+          direccion: direccionAdoptante // 📍 Dirección añadida correctamente con su coma
         };
 
         const respuesta = await fetch(`${import.meta.env.VITE_API_URL}/adoptantes`, { 
@@ -200,7 +248,7 @@ export default function Registro() {
           <div className="flex p-1 bg-slate-100 rounded-xl mb-8">
             <button 
               type="button"
-              onClick={() => { setTipoCuenta('adoptante'); setPasswordError(''); setRutError(''); }}
+              onClick={() => { setTipoCuenta('adoptante'); setPasswordError(''); setRutError(''); setRutAdoptanteError(''); }}
               className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
                 tipoCuenta === 'adoptante' 
                   ? 'bg-white shadow-sm text-pink-500' 
@@ -211,7 +259,7 @@ export default function Registro() {
             </button>
             <button 
               type="button"
-              onClick={() => { setTipoCuenta('fundacion'); setPasswordError(''); setRutError(''); }}
+              onClick={() => { setTipoCuenta('fundacion'); setPasswordError(''); setRutError(''); setRutAdoptanteError(''); }}
               className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
                 tipoCuenta === 'fundacion' 
                   ? 'bg-white shadow-sm text-pink-500' 
@@ -237,6 +285,19 @@ export default function Registro() {
                     value={apellidoAdoptante} onChange={(e) => setApellidoAdoptante(e.target.value)}
                     className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
                   />
+                  
+                  {/* RUT Adoptante Formateado con Validación */}
+                  <div className="w-full md:col-span-2">
+                    <input 
+                      type="text" placeholder="📄 RUT (Ej. 12.345.678-9)" 
+                      value={rutAdoptante} onChange={handleRutAdoptanteChange}
+                      className={`w-full p-3 border ${rutAdoptanteError ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-pink-300'} rounded-xl outline-none text-sm transition-colors`} required
+                    />
+                    {rutAdoptanteError && (
+                      <p className="text-red-500 text-xs ml-1 mt-1 font-medium">{rutAdoptanteError}</p>
+                    )}
+                  </div>
+
                   <input 
                     type="email" placeholder="✉️ Correo Electrónico" 
                     value={correo} onChange={(e) => setCorreo(e.target.value)}
@@ -293,6 +354,13 @@ export default function Registro() {
                   <input 
                     type="text" placeholder="📱 Teléfono (Opcional)" 
                     value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2"
+                  />
+
+                  {/* 📍 Input de Dirección para Adoptantes */}
+                  <input 
+                    type="text" placeholder="📍 Dirección (Ej. Av. Libertador 123)" 
+                    value={direccionAdoptante} onChange={(e) => setDireccionAdoptante(e.target.value)}
                     className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2"
                   />
                 </div>
@@ -432,6 +500,33 @@ export default function Registro() {
                 </div>
               </div>
             )}
+
+            {/* 📋 TICKETS OBLIGATORIOS DE TÉRMINOS Y LEYES CHILENAS */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  checked={aceptaTerminos} 
+                  onChange={(e) => setAceptaTerminos(e.target.checked)}
+                  className="mt-1 w-4 h-4 text-pink-500 rounded border-slate-300 focus:ring-pink-300 cursor-pointer"
+                />
+                <span className="text-xs text-slate-600">
+                  Acepto los <strong className="text-slate-800">Términos y Condiciones de Uso</strong> y el tratamiento confidencial de mis datos personales según la <strong className="text-slate-800">Ley 19.628 / 21.719</strong> de Protección a la Vida Privada.
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  checked={aceptaLeyes} 
+                  onChange={(e) => setAceptaLeyes(e.target.checked)}
+                  className="mt-1 w-4 h-4 text-pink-500 rounded border-slate-300 focus:ring-pink-300 cursor-pointer"
+                />
+                <span className="text-xs text-slate-600">
+                  Me comprometo al cumplimiento de la <strong className="text-slate-800">Ley 21.020 (Tenencia Responsable)</strong> y acepto la validez jurídica de los contratos de adopción firmados electrónicamente mediante la <strong className="text-slate-800">Ley 19.799</strong>.
+                </span>
+              </label>
+            </div>
 
             <button 
               type="submit" 

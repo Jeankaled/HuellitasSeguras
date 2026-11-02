@@ -12,6 +12,9 @@ export default function PanelGestion({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // 🚨 Estado para las alertas comunitarias (Lista Roja)
+  const [alertasRed, setAlertasRed] = useState([]);
+
   // Estados de Interfaz
   const [vistaActiva, setVistaActiva] = useState(location.state?.vista || 'bandeja');
   const [prevVista, setPrevVista] = useState(location.state?.vista);
@@ -67,6 +70,15 @@ export default function PanelGestion({ onLogout }) {
   const [tema, setTema] = useState({ principal: '#94a3b8', secundario: '#cbd5e1' });
   const [nombreOrganizacion, setNombreOrganizacion] = useState('Gestión de Refugio');
 
+  // Función auxiliar para verificar si un adoptante está reportado según su RUT
+  const obtenerAlertaAdoptante = (solicitud) => {
+    const rut = solicitud?.rut || solicitud?.rut_adoptante || solicitud?.rut_persona;
+    if (!rut) return null;
+    return alertasRed.find(a => a.adoptante_rut === rut || a.rut === rut);
+  };
+
+  const alertaDetalle = obtenerAlertaAdoptante(seleccionado);
+
   // Función auxiliar para formatear la URL de la imagen que viene del backend
   const obtenerUrlImagen = (url) => {
     if (!url) return 'https://via.placeholder.com/300x200?text=Sin+Foto';
@@ -107,7 +119,8 @@ export default function PanelGestion({ onLogout }) {
         const resultados = await Promise.allSettled([
           fetch(`${import.meta.env.VITE_API_URL}/postulaciones`, { headers }),
           fetch(`${import.meta.env.VITE_API_URL}/animales`, { headers }),
-          fetch(`${import.meta.env.VITE_API_URL}/refugios`, { headers })
+          fetch(`${import.meta.env.VITE_API_URL}/refugios`, { headers }),
+          fetch(`${import.meta.env.VITE_API_URL}/reportes-adoptantes`, { headers }) // 🚨 Carga de reportes
         ]);
 
         // Procesar Adoptantes
@@ -131,9 +144,17 @@ export default function PanelGestion({ onLogout }) {
           listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.data || datosRefugios.datos || datosRefugios.refugios || []);
         }
 
+        // Procesar Alertas
+        let listaAlertas = [];
+        if (resultados[3] && resultados[3].status === 'fulfilled' && resultados[3].value.ok) {
+          const datosAlertas = await resultados[3].value.json();
+          listaAlertas = Array.isArray(datosAlertas) ? datosAlertas : (datosAlertas.data || datosAlertas.datos || datosAlertas.alertas || []);
+        }
+
         setAdoptantes(listaAdoptantes);
         setAnimales(listaAnimales);
         setRefugios(listaRefugios);
+        setAlertasRed(listaAlertas);
 
         if (listaAdoptantes.length > 0) {
           setSeleccionado(listaAdoptantes[0]);
@@ -489,7 +510,7 @@ export default function PanelGestion({ onLogout }) {
             title="Ajustes de la Fundación"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
             </svg>
           </button>
@@ -536,82 +557,106 @@ export default function PanelGestion({ onLogout }) {
         {vistaActiva === 'bandeja' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 items-start">
             {/* Sección de la Bandeja */}
-<section className="lg:col-span-4 flex flex-col gap-4">
-  <div className="flex justify-between items-center px-1 mb-2">
-    <h2 className="font-bold text-slate-800 flex items-center gap-2">Bandeja de Entrada 💌</h2>
-    <span className="text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-sm" style={{ backgroundColor: tema.secundario }}>
-      {adoptantes.length} Solicitudes
-    </span>
-  </div>
+            <section className="lg:col-span-4 flex flex-col gap-4">
+              <div className="flex justify-between items-center px-1 mb-2">
+                <h2 className="font-bold text-slate-800 flex items-center gap-2">Bandeja de Entrada 💌</h2>
+                <span className="text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-sm" style={{ backgroundColor: tema.secundario }}>
+                  {adoptantes.length} Solicitudes
+                </span>
+              </div>
 
-  <div className="flex flex-col gap-4 overflow-y-auto pr-2 max-h-[70vh] custom-scrollbar">
-    {adoptantes.map((solicitud) => (
-      <div 
-        key={solicitud.id} 
-        onClick={() => setSeleccionado(solicitud)}
-        style={{
-          borderColor: seleccionado?.id === solicitud.id ? tema.principal : 'transparent',
-          boxShadow: seleccionado?.id === solicitud.id ? `0 4px 15px -3px ${tema.principal}40` : ''
-        }}
-        className={`p-5 rounded-4xl border-2 cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-md ${
-          seleccionado?.id === solicitud.id ? 'transform scale-[1.02]' : 'border-transparent'
-        }`}
-      >
-        <div className="flex justify-between items-start mb-3">
-          {/* ✅ Usamos nombre_adoptante que viene del JOIN con la tabla Adoptantes */}
-          <h3 className="font-extrabold text-slate-800 text-lg">{solicitud.nombre_adoptante || 'Sin Nombre'}</h3>
-          <span className="bg-yellow-100 text-yellow-600 text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wide">
-            {solicitud.estado_postulacion || 'Pendiente'}
-          </span>
-        </div>
-        <p className="text-sm font-medium flex items-center gap-1 mb-4" style={{ color: tema.principal }}>
-          ♡ Para adoptar a: <span className="text-slate-600">{solicitud.nombre_animal || 'Mascota'}</span>
-        </p>
-        <div className="flex justify-between items-center text-xs text-slate-400 font-medium">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg> 
-            {solicitud.fecha_postulacion ? new Date(solicitud.fecha_postulacion).toLocaleDateString() : 'Reciente'}
-          </span>
-          
-          {/* ✅ Usamos solicitud.id para navegar al detalle exacto */}
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/solicitudes/${solicitud.id}`);
-            }}
-            className="transition font-bold hover:underline" 
-            style={{ color: tema.secundario }}
-          >
-            Ver ficha completa →
-          </button>
-        </div>
-      </div>
-    ))}
-  </div>
-</section>
+              <div className="flex flex-col gap-4 overflow-y-auto pr-2 max-h-[70vh] custom-scrollbar">
+                {adoptantes.map((solicitud) => {
+                  const alertaCard = obtenerAlertaAdoptante(solicitud);
+                  return (
+                    <div 
+                      key={solicitud.id} 
+                      onClick={() => setSeleccionado(solicitud)}
+                      style={{
+                        borderColor: seleccionado?.id === solicitud.id ? tema.principal : (alertaCard ? '#fca5a5' : 'transparent'),
+                        boxShadow: seleccionado?.id === solicitud.id ? `0 4px 15px -3px ${tema.principal}40` : ''
+                      }}
+                      className={`p-5 rounded-4xl border-2 cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-md ${
+                        seleccionado?.id === solicitud.id ? 'transform scale-[1.02]' : ''
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-extrabold text-slate-800 text-lg flex items-center gap-2 flex-wrap">
+                            {solicitud.nombre_adoptante || 'Sin Nombre'}
+                            {alertaCard && (
+                              <span className="bg-red-100 text-red-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                🚨 Reportado
+                              </span>
+                            )}
+                          </h3>
+                        </div>
+                        <span className="bg-yellow-100 text-yellow-600 text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wide">
+                          {solicitud.estado_postulacion || 'Pendiente'}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium flex items-center gap-1 mb-4" style={{ color: tema.principal }}>
+                        ♡ Para adoptar a: <span className="text-slate-600">{solicitud.nombre_animal || 'Mascota'}</span>
+                      </p>
+                      <div className="flex justify-between items-center text-xs text-slate-400 font-medium">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                          </svg> 
+                          {solicitud.fecha_postulacion ? new Date(solicitud.fecha_postulacion).toLocaleDateString() : 'Reciente'}
+                        </span>
+                        
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/solicitudes/${solicitud.id}`);
+                          }}
+                          className="transition font-bold hover:underline" 
+                          style={{ color: tema.secundario }}
+                        >
+                          Ver ficha completa →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
 
             {seleccionado && (
-  <section className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden flex flex-col h-full min-h-[70vh]">
-    <div className="rounded-4xl p-6 flex justify-between items-center mb-8 bg-opacity-10 border" style={{ backgroundColor: `${tema.secundario}20`, borderColor: `${tema.secundario}40` }}>
-      <div className="flex items-center gap-5">
-        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold shadow-sm" style={{ color: tema.principal }}>
-          {/* 1️⃣ Cambiado a nombre_adoptante con respaldo */}
-          {(seleccionado?.nombre_adoptante || seleccionado?.nombre_completo) ? (seleccionado.nombre_adoptante || seleccionado.nombre_completo).charAt(0).toUpperCase() : '?'}
-        </div>
-        <div>
-          {/* 2️⃣ Cambiado a nombre_adoptante */}
-          <h2 className="text-2xl font-extrabold text-slate-800">{seleccionado?.nombre_adoptante || seleccionado?.nombre_completo || 'Sin Nombre'}</h2>
-          {/* 3️⃣ Cambiado para buscar rut, rut_adoptante o rut_persona por si el backend usa otro nombre */}
-          <p className="font-medium mt-1" style={{ color: tema.secundario }}>RUT: {seleccionado?.rut || seleccionado?.rut_adoptante || seleccionado?.rut_persona || 'Sin RUT'}</p>
-        </div>
-      </div>
-      <div className="bg-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm flex items-center gap-2" style={{ color: tema.principal }}>
-        {/* 4️⃣ Muestra dinámicamente el nombre de la mascota */}
-        <span>🐾</span> Postula por {seleccionado?.nombre_animal || 'Mascota'}
-      </div>
-    </div>
+              <section className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden flex flex-col h-full min-h-[70vh]">
+                
+                {alertaDetalle && (
+                  <div className="mb-6 bg-red-50 border-2 border-red-300 rounded-3xl p-5 shadow-sm">
+                    <h4 className="font-extrabold text-red-700 flex items-center gap-2 text-sm mb-1">
+                      🚨 ¡Advertencia de la Red! Este adoptante cuenta con un reporte comunitario
+                    </h4>
+                    <p className="text-xs text-red-600 font-medium mt-1">
+                      <span className="font-bold">Motivo de falta:</span> {alertaDetalle.tipo_falta || 'Incumplimiento / Irresponsabilidad'}
+                    </p>
+                    {alertaDetalle.descripcion && (
+                      <p className="text-xs text-slate-600 mt-1">
+                        <span className="font-bold">Descripción:</span> {alertaDetalle.descripcion}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-4xl p-6 flex justify-between items-center mb-8 bg-opacity-10 border" style={{ backgroundColor: `${tema.secundario}20`, borderColor: `${tema.secundario}40` }}>
+                  <div className="flex items-center gap-5">
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold shadow-sm" style={{ color: tema.principal }}>
+                      {(seleccionado?.nombre_adoptante || seleccionado?.nombre_completo) ? (seleccionado.nombre_adoptante || seleccionado.nombre_completo).charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-slate-800">{seleccionado?.nombre_adoptante || seleccionado?.nombre_completo || 'Sin Nombre'}</h2>
+                      <p className="font-medium mt-1" style={{ color: tema.secundario }}>RUT: {seleccionado?.rut || seleccionado?.rut_adoptante || seleccionado?.rut_persona || 'Sin RUT'}</p>
+                    </div>
+                  </div>
+                  <div className="bg-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm flex items-center gap-2" style={{ color: tema.principal }}>
+                    <span>🐾</span> Postula por {seleccionado?.nombre_animal || 'Mascota'}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-4 mb-8">
                   {[1, 2, 3].map((num) => (
                     <div key={num} className="h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition cursor-pointer hover:opacity-80" style={{ borderColor: `${tema.principal}50`, backgroundColor: `${tema.principal}10`, color: tema.principal }}>
@@ -620,6 +665,7 @@ export default function PanelGestion({ onLogout }) {
                     </div>
                   ))}
                 </div>
+
                 <div className="mb-auto">
                   <h3 className="font-extrabold text-slate-700 text-lg mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5" style={{ color: tema.secundario }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -649,6 +695,7 @@ export default function PanelGestion({ onLogout }) {
                     </div>
                   </div>
                 </div>
+
                 <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-slate-100">
                   <button 
                     onClick={() => abrirModalRespuesta('solicitar_info')}
