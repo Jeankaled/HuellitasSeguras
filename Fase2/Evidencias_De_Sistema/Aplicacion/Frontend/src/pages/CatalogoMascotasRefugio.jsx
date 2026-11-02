@@ -137,11 +137,11 @@ export default function CatalogoMascotasRefugio() {
             {refugio?.logo_url || refugio?.logo ? (
               <img 
                 src={
-                  (fundacion.logo_url || fundacion.logo).startsWith('http')
-                    ? (fundacion.logo_url || fundacion.logo)
-                    : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${(fundacion.logo_url || fundacion.logo)}`
+                  (refugio.logo_url || refugio.logo).startsWith('http')
+                    ? (refugio.logo_url || refugio.logo)
+                    : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${(refugio.logo_url || refugio.logo)}`
                 }
-                alt={fundacion.nombre_organizacion}
+                alt={refugio.nombre_organizacion}
                 className="w-full h-full object-contain"
               />
             ) : (
