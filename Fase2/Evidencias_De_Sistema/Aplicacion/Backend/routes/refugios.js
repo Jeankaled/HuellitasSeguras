@@ -67,7 +67,7 @@ router.post('/', upload.single('logo'), async (req, res) => {
         }
 
         const rutLimpio = rut.replace(/\./g, '');
-        const logo_url = req.file ? `http://localhost:3000/uploads/${req.file.filename}` : null;
+        const logo_url = req.file ? `/uploads/${req.file.filename}` : null;
 
         const nuevoRefugio = await db.query(
             `INSERT INTO Refugios (rut, nombre_organizacion, direccion, email_contacto, telefono, historia, logo_url, color_principal, color_secundario, estado_verificacion) 
@@ -115,7 +115,7 @@ router.put('/:id', upload.single('logo'), async (req, res) => {
             }
         }
 
-        const logo_url = req.file ? `http://localhost:3000/uploads/${req.file.filename}` : null;
+        const logo_url = req.file ? `/uploads/${req.file.filename}` : null;
 
         const refugioActualizado = await db.query(
             `UPDATE Refugios 
