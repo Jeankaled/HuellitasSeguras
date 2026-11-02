@@ -136,8 +136,12 @@ export default function CatalogoMascotasRefugio() {
           <div className="w-28 h-28 rounded-3xl bg-white p-3 shadow-lg border-4 border-white flex items-center justify-center overflow-hidden shrink-0">
             {refugio?.logo_url || refugio?.logo ? (
               <img 
-                src={refugio.logo_url || refugio.logo} 
-                alt={refugio.nombre_organizacion} 
+                src={
+                  (fundacion.logo_url || fundacion.logo).startsWith('http')
+                    ? (fundacion.logo_url || fundacion.logo)
+                    : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${(fundacion.logo_url || fundacion.logo)}`
+                }
+                alt={fundacion.nombre_organizacion}
                 className="w-full h-full object-contain"
               />
             ) : (
