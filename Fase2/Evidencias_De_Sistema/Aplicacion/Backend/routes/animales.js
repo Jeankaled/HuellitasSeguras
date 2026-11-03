@@ -73,7 +73,7 @@ router.post('/', upload.single('foto'), async (req, res) => {
         // Evitamos que un string vacío rompa la regla UNIQUE en PostgreSQL
         const microchipFinal = (microchip === "" || microchip === undefined || microchip === "null") ? null : microchip;
         
-        const fotoUrl = req.file ? `http://localhost:3000/uploads/${req.file.filename}` : null;
+        const fotoUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
         const nuevoAnimal = await db.query(
             `INSERT INTO Animales (refugio_id, nombre, especie, raza, sexo, estado, edad, microchip, foto, historia) 
@@ -98,7 +98,7 @@ router.put('/:id', upload.single('foto'), async (req, res) => {
         const { nombre, especie, raza, sexo, estado, edad, microchip, historia } = req.body;
         
         const microchipFinal = (microchip === "" || microchip === undefined || microchip === "null") ? null : microchip;
-        const nuevaFotoUrl = req.file ? `http://localhost:3000/uploads/${req.file.filename}` : null;
+        const nuevaFotoUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
         const animalActualizado = await db.query(
             `UPDATE Animales 

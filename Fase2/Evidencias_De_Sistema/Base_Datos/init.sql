@@ -91,3 +91,12 @@ CREATE TABLE Postulaciones (
   tiempo_solas VARCHAR(100),
   motivacion TEXT
 );
+
+CREATE TABLE Reportes_Adoptantes (
+  id SERIAL PRIMARY KEY,
+  refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
+  adoptante_rut VARCHAR(20) NOT NULL,
+  tipo_falta VARCHAR(100) NOT NULL,
+  descripcion TEXT,
+  fecha_reporte TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
