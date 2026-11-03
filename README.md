@@ -1,5 +1,7 @@
 #  Huellitas Seguras - Plataforma SaaS Multi-Tenant
 
+## **Enlace de Producción:** [https://huellitasseguras-334.pages.dev](https://huellitasseguras-334.pages.dev)
+
 ## 1. Descripción del proyecto
 
 "Huellita Segura" es una plataforma SaaS (Software como Servicio) con arquitectura Multi-Tenant orientada a fundaciones, refugios de animales y municipalidades en Chile. La solución resuelve la gestión administrativa informal y la falta de trazabilidad en las adopciones, actuando como el puente tecnológico que hace viable la Ley 21.020 (Ley Cholito) y la Ley 19.799. Centraliza el historial clínico de las mascotas y formaliza el proceso de adopción mediante la generación automática de contratos digitales con validación de identidad (KYC ligero) y Firma Electrónica Simple (FES), entregando a las organizaciones respaldo legal ante posibles casos de maltrato o abandono.
