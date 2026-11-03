@@ -155,7 +155,11 @@ export default function DirectorioFundaciones() {
                       <div className="w-20 h-20 rounded-3xl bg-white p-2.5 shadow-lg border-4 border-white flex items-center justify-center absolute -bottom-8 left-6 overflow-hidden group-hover:scale-105 transition-transform">
                         {fundacion.logo_url || fundacion.logo ? (
                           <img
-                            src={fundacion.logo_url || fundacion.logo}
+                            src={
+                              (fundacion.logo_url || fundacion.logo).startsWith('http')
+                                ? (fundacion.logo_url || fundacion.logo)
+                                : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${(fundacion.logo_url || fundacion.logo)}`
+                            }
                             alt={fundacion.nombre_organizacion}
                             className="w-full h-full object-contain"
                           />

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import PanelGestion from './pages/PanelGestion';
 import Registro from './pages/Registro';
@@ -59,8 +60,11 @@ function App() {
       <Toaster position="top-center" /> 
       
       <Routes>
-        {/* 1. La ruta raíz redirige lógicamente según el rol */}
-        <Route path="/" element={<Navigate to={token ? rutaPorDefecto : "/login"} replace />} />
+        {/* 1. Ruta raíz (Landing Page si no hay sesión, o redirige al panel/fundaciones si ya están logueados) */}
+        <Route 
+          path="/" 
+          element={token ? <Navigate to={rutaPorDefecto} replace /> : <LandingPage />} 
+        />
 
         {/* 2. Ruta explícita de Login */}
         <Route 
@@ -86,35 +90,30 @@ function App() {
           element={token ? <DirectorioAdoptantes onLogout={handleLogout} /> : <Navigate to="/login" replace />} 
         />
         
-        {/* 6. Ruta de Ajustes (Debe ir ANTES del comodín) */}
+        {/* 6. Ruta de Ajustes */}
         <Route 
           path="/ajustes-perfil" 
           element={token ? <PerfilFundacion /> : <Navigate to="/login" replace />} 
         />
 
-        {/* 7. NUEVA RUTA PARA LA FICHA COMPLETA (Debe ir ANTES del comodín) */}
+        {/* 7. Ficha de Solicitud */}
         <Route 
           path="/solicitudes/:id" 
           element={token ? <FichaSolicitud /> : <Navigate to="/login" replace />} 
         />
 
-        {/* 8. Comodín: Captura rutas rotas (SIEMPRE AL FINAL) */}
+        {/* 8. Vistas de Adoptantes / Catálogo / Fundaciones */}
+        <Route path="/preferencias-adoptante" element={<PreferenciasAdoptante />} />
+        <Route path="/perfil-adoptante" element={<PerfilAdoptante />} />
+        <Route path="/fundaciones" element={<DirectorioFundaciones onLogout={handleLogout} />} />
+        <Route path="/catalogo-adoptante" element={<CatalogoMascotasRefugio />} />
+        <Route path="/formulario-adopcion" element={<FormularioAdopcion />} />
+
+        {/* 9. Comodín: Captura rutas rotas (SIEMPRE AL FINAL) */}
         <Route 
           path="*" 
-          element={<Navigate to={token ? rutaPorDefecto : "/login"} replace />} 
+          element={<Navigate to={token ? rutaPorDefecto : "/"} replace />} 
         />
-        <Route path="/preferencias-adoptante" element={<PreferenciasAdoptante />} 
-        />
-
-        <Route path="/perfil-adoptante" element={<PerfilAdoptante />} 
-        />
-        <Route path="/fundaciones" element={<DirectorioFundaciones />} /> 
-
-        <Route path="/catalogo-adoptante" element={<CatalogoMascotasRefugio />} />
-
-        <Route path="/fundaciones" element={<DirectorioFundaciones onLogout={handleLogout} />} />
-
-        <Route path="/formulario-adopcion" element={<FormularioAdopcion />} />
       </Routes>
     </Router>
   );
