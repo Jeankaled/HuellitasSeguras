@@ -86,6 +86,29 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-sky-100 p-4 relative overflow-hidden">
       
+      {/* Botón Volver a la Página Principal (Estilizado) */}
+      <button 
+        onClick={() => navigate('/')} 
+        className="group absolute top-6 left-6 z-20 flex items-center gap-2 bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-sm hover:shadow-lg border-2 border-white hover:border-pink-200 transition-all duration-300 text-sky-700 font-extrabold hover:text-pink-500 hover:-translate-y-1"
+      >
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="20" 
+          height="20" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          className="transition-transform duration-300 group-hover:-translate-x-1"
+        >
+          <path d="m12 19-7-7 7-7"/>
+          <path d="M19 12H5"/>
+        </svg>
+        Volver a la Página Principal
+      </button>
+
       {/* Elementos decorativos de fondo */}
       <div className="absolute top-12 left-12 text-6xl opacity-20 hidden md:block">🦴</div>
       <div className="absolute bottom-12 right-12 text-6xl opacity-20 hidden md:block">🧶</div>
