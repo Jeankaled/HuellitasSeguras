@@ -26,6 +26,7 @@ export default function FichaSolicitud() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [solicitud, setSolicitud] = useState(null);
+  const [enviandoAccion, setEnviandoAccion] = useState(false);
 
   // Tema de la fundación
   const [tema, setTema] = useState({ principal: '#F9A8D4', secundario: '#93C5FD' });
@@ -105,33 +106,73 @@ export default function FichaSolicitud() {
 
   // Función de avance de etapa con backend y notificación
   const avanzarEtapaBackend = async (nuevaEtapa, nombreEtapaTexto) => {
+  setEnviandoAccion(true);
+  try {
+    const token = localStorage.getItem('token');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+    // 1. Quitamos "/etapa" de la URL
+    const res = await fetch(`${apiBase}/postulaciones/${solicitud.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      // 2. Enviamos el campo con el nombre que espera tu backend (estado_postulacion)
+      body: JSON.stringify({
+        estado_postulacion: nombreEtapaTexto 
+      })
+    });
+
+    if (res.ok) {
+      setTabActiva(nuevaEtapa);
+      setSolicitud(prev => ({ ...prev, estado: nombreEtapaTexto }));
+      alert(`¡Proceso actualizado! Se notificará a ${solicitud.postulante.nombre}.`);
+    } else {
+      alert('Ocurrió un error al actualizar la etapa en el servidor.');
+    }
+  } catch (err) {
+    console.error("Error al avanzar etapa:", err);
+    setTabActiva(nuevaEtapa); // Avance local en caso de fallo
+  } finally {
+    setEnviandoAccion(false);
+  }
+};
+
+  // Función para rechazar la postulación en la etapa 1
+  const rechazarPostulacionBackend = async () => {
+    const motivo = window.prompt("Ingrese el motivo del rechazo para notificar al postulante:", "La postulación no cumple con los requisitos mínimos.");
+    if (motivo === null) return; // Cancelado por el usuario
+
+    setEnviandoAccion(true);
     try {
       const token = localStorage.getItem('token');
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-      const res = await fetch(`${apiBase}/postulaciones/${solicitud.id}/etapa`, {
-        method: 'PUT',
+      const res = await fetch(`${apiBase}/postulaciones/${solicitud.id}/respuesta`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          estado: nombreEtapaTexto,
-          etapa_num: nuevaEtapa
+          accion: 'rechazar',
+          motivo: motivo
         })
       });
 
       if (res.ok) {
-        setTabActiva(nuevaEtapa);
-        setSolicitud(prev => ({ ...prev, estado: nombreEtapaTexto }));
-        alert(`¡Proceso actualizado! Se envió un correo de notificación a ${solicitud.postulante.nombre}. 📩`);
+        setSolicitud(prev => ({ ...prev, estado: 'Rechazada' }));
+        alert(`Solicitud rechazada. Se envió un correo informativo a ${solicitud.postulante.nombre}. 📧`);
       } else {
-        alert('Ocurrió un error al actualizar la etapa en el servidor.');
+        alert('Error al procesar el rechazo de la solicitud.');
       }
     } catch (err) {
-      console.error("Error al avanzar etapa:", err);
-      // Si aún no creas el endpoint en el backend, avanzamos la pestaña localmente para probar
-      setTabActiva(nuevaEtapa);
+      console.error("Error al rechazar postulación:", err);
+      setSolicitud(prev => ({ ...prev, estado: 'Rechazada' }));
+      alert('Solicitud marcada como Rechazada localmente.');
+    } finally {
+      setEnviandoAccion(false);
     }
   };
 
@@ -189,7 +230,11 @@ export default function FichaSolicitud() {
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-3xl font-extrabold text-slate-800">{solicitud.postulante.nombre}</h1>
-                  <span className="px-3 py-1 bg-amber-100 text-amber-700 font-bold text-xs rounded-full uppercase tracking-wider">
+                  <span className={`px-3 py-1 font-bold text-xs rounded-full uppercase tracking-wider ${
+                    solicitud.estado === 'Rechazada' 
+                      ? 'bg-red-100 text-red-700' 
+                      : 'bg-amber-100 text-amber-700'
+                  }`}>
                     {solicitud.estado}
                   </span>
                 </div>
@@ -240,7 +285,10 @@ export default function FichaSolicitud() {
                 >
                   <CheckCircle className="w-5 h-5"/> Aprobar
                 </button>
-                <button className="px-6 py-2.5 rounded-xl text-slate-500 bg-white border border-slate-200 font-bold hover:bg-slate-50 transition flex items-center gap-2 justify-center text-sm">
+                <button 
+                  onClick={rechazarPostulacionBackend}
+                  className="px-6 py-2.5 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center gap-2 justify-center text-sm"
+                >
                   <XCircle className="w-4 h-4"/> Rechazar / Más info
                 </button>
               </div>
@@ -323,11 +371,20 @@ export default function FichaSolicitud() {
                 </div>
               </div>
 
-              {/* Botón Siguiente Etapa con Conexión Backend */}
-              <div className="flex justify-end pt-6 border-t border-slate-100">
+              {/* BOTONES DE NAVEGACIÓN Y RECHAZO EN LA ETAPA 1 */}
+              <div className="flex justify-between items-center pt-6 border-t border-slate-100">
+                <button
+                  onClick={rechazarPostulacionBackend}
+                  disabled={enviandoAccion}
+                  className="px-6 py-3 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center gap-2"
+                >
+                  <XCircle className="w-5 h-5"/> Rechazar Solicitud
+                </button>
+
                 <button
                   onClick={() => avanzarEtapaBackend('evaluacion', 'En Evaluación')}
-                  className="px-6 py-3 rounded-xl text-white font-bold flex items-center gap-2 shadow-sm transition hover:opacity-90"
+                  disabled={enviandoAccion}
+                  className="px-6 py-3 rounded-xl text-white font-bold flex items-center gap-2 shadow-sm transition hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: tema.principal }}
                 >
                   Siguiente: Evaluación y Notas <ArrowRight className="w-5 h-5"/>
@@ -387,6 +444,7 @@ export default function FichaSolicitud() {
                 </button>
                 <button
                   onClick={() => avanzarEtapaBackend('documentos', 'Revisión de Documentos')}
+                  disabled={enviandoAccion}
                   className="px-6 py-3 rounded-xl text-white font-bold flex items-center gap-2 shadow-sm transition hover:opacity-90"
                   style={{ backgroundColor: tema.principal }}
                 >
@@ -441,6 +499,7 @@ export default function FichaSolicitud() {
                 </button>
                 <button
                   onClick={() => avanzarEtapaBackend('historial', 'Cierre y Contrato')}
+                  disabled={enviandoAccion}
                   className="px-6 py-3 rounded-xl text-white font-bold flex items-center gap-2 shadow-sm transition hover:opacity-90"
                   style={{ backgroundColor: tema.principal }}
                 >

@@ -13,6 +13,7 @@ import PerfilAdoptante from './pages/PerfilAdoptante';
 import DirectorioFundaciones from './pages/DirectorioFundaciones';
 import CatalogoMascotasRefugio from './pages/CatalogoMascotasRefugio';
 import FormularioAdopcion from './pages/FormularioAdopcion';
+import DetallePostulacionAdoptante from './pages/DetallePostulacionAdoptante'; // 👈 Se agregó la importación
 
 // Función auxiliar para determinar la ruta por defecto según el rol del usuario
 const obtenerRutaPorRol = () => {
@@ -49,7 +50,7 @@ function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     localStorage.removeItem('preferencia_mascota');
-    setToken(null); // 👈 Esto le avisa a React que ya no hay sesión activa
+    setToken(null);
   };
 
   const rutaPorDefecto = obtenerRutaPorRol();
@@ -60,7 +61,7 @@ function App() {
       <Toaster position="top-center" /> 
       
       <Routes>
-        {/* 1. Ruta raíz (Landing Page si no hay sesión, o redirige al panel/fundaciones si ya están logueados) */}
+        {/* 1. Ruta raíz */}
         <Route 
           path="/" 
           element={token ? <Navigate to={rutaPorDefecto} replace /> : <LandingPage />} 
@@ -96,7 +97,7 @@ function App() {
           element={token ? <PerfilFundacion /> : <Navigate to="/login" replace />} 
         />
 
-        {/* 7. Ficha de Solicitud */}
+        {/* 7. Ficha de Solicitud (Vista Staff / Fundación) */}
         <Route 
           path="/solicitudes/:id" 
           element={token ? <FichaSolicitud /> : <Navigate to="/login" replace />} 
@@ -108,6 +109,12 @@ function App() {
         <Route path="/fundaciones" element={<DirectorioFundaciones onLogout={handleLogout} />} />
         <Route path="/catalogo-adoptante" element={<CatalogoMascotasRefugio />} />
         <Route path="/formulario-adopcion" element={<FormularioAdopcion />} />
+
+        {/* NUEVA RUTA: Detalle de Postulación (Vista para el Adoptante) */}
+        <Route 
+          path="/mis-postulaciones/:id" 
+          element={token ? <DetallePostulacionAdoptante /> : <Navigate to="/login" replace />} 
+        />
 
         {/* 9. Comodín: Captura rutas rotas (SIEMPRE AL FINAL) */}
         <Route 

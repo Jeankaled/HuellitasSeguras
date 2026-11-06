@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Edit, X, Upload, Cat, Plus, FileText } from 'lucide-react';
+import { Edit, X, Upload, Cat, Plus, FileText, AlertTriangle } from 'lucide-react';
 
 export default function PanelGestion({ onLogout }) {
   const navigate = useNavigate();
@@ -14,6 +14,10 @@ export default function PanelGestion({ onLogout }) {
 
   // 🚨 Estado para las alertas comunitarias (Lista Roja)
   const [alertasRed, setAlertasRed] = useState([]);
+
+  // NUEVOS ESTADOS PARA EL MODAL DE REPORTES
+  const [modalReportesAbierto, setModalReportesAbierto] = useState(false);
+  const [reportesDelAdoptante, setReportesDelAdoptante] = useState([]);
 
   // Estados de Interfaz
   const [vistaActiva, setVistaActiva] = useState(location.state?.vista || 'bandeja');
@@ -70,14 +74,46 @@ export default function PanelGestion({ onLogout }) {
   const [tema, setTema] = useState({ principal: '#94a3b8', secundario: '#cbd5e1' });
   const [nombreOrganizacion, setNombreOrganizacion] = useState('Gestión de Refugio');
 
-  // Función auxiliar para verificar si un adoptante está reportado según su RUT
-  const obtenerAlertaAdoptante = (solicitud) => {
-    const rut = solicitud?.rut || solicitud?.rut_adoptante || solicitud?.rut_persona;
-    if (!rut) return null;
-    return alertasRed.find(a => a.adoptante_rut === rut || a.rut === rut);
+  // Función auxiliar para verificar si un adoptante está reportado según su RUT (ACTUALIZADA)
+  // 1. FUNCIÓN DE BÚSQUEDA (A prueba de puntos y guiones en el RUT)
+  const obtenerReportesAdoptante = (solicitud) => {
+    if (!solicitud) return [];
+
+    // Función auxiliar para quitar puntos, guiones y espacios de cualquier RUT
+    const limpiarRut = (str) => {
+      if (!str) return '';
+      return str.toString().replace(/[.-]/g, '').trim().toLowerCase();
+    };
+
+    // Obtenemos y limpiamos los datos de la solicitud
+    const rutRaw = solicitud.rut || solicitud.rut_adoptante || solicitud.rut_persona || solicitud.adoptante_rut || '';
+    const rutLimpio = limpiarRut(rutRaw);
+    
+    const email = (solicitud.email || solicitud.correo || solicitud.correo_adoptante || '').trim().toLowerCase();
+    const nombre = (solicitud.nombre_adoptante || solicitud.nombre_completo || solicitud.nombre || '').trim().toLowerCase();
+
+    return alertasRed.filter(a => {
+      // Obtenemos y limpiamos los datos del reporte (alerta)
+      const aRutRaw = a.adoptante_rut || a.rut || '';
+      const aRutLimpio = limpiarRut(aRutRaw);
+      
+      const aEmail = (a.correo || a.email || a.adoptante_email || '').trim().toLowerCase();
+      const aNombre = (a.nombre_adoptante || a.nombre || '').trim().toLowerCase();
+
+      // 1. Coincidencia por RUT (ya sin puntos ni guiones, ej: "123456789" === "123456789")
+      const coincideRut = rutLimpio && rutLimpio !== 'sinrut' && aRutLimpio === rutLimpio;
+      
+      // 2. Coincidencia por Email
+      const coincideEmail = email && aEmail === email;
+      
+      // 3. Coincidencia por Nombre
+      const coincideNombre = nombre && aNombre === nombre;
+
+      return coincideRut || coincideEmail || coincideNombre;
+    });
   };
 
-  const alertaDetalle = obtenerAlertaAdoptante(seleccionado);
+  const reportesDetalle = obtenerReportesAdoptante(seleccionado);
 
   // Función auxiliar para formatear la URL de la imagen que viene del backend
   const obtenerUrlImagen = (url) => {
@@ -159,8 +195,7 @@ export default function PanelGestion({ onLogout }) {
         if (listaAdoptantes.length > 0) {
           setSeleccionado(listaAdoptantes[0]);
         }
-
-        // --- LÓGICA DEL NOMBRE DE LA ORGANIZACIÓN ---
+// --- LÓGICA DEL NOMBRE DE LA ORGANIZACIÓN ---
         if (usuarioGuardado.organizacion) {
           setNombreOrganizacion(usuarioGuardado.organizacion);
         } else {
@@ -460,8 +495,7 @@ export default function PanelGestion({ onLogout }) {
       setEnviandoRespuesta(false);
     }
   };
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Cargando panel de gestión... 🐾</div>;
+if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Cargando panel de gestión... 🐾</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center bg-red-50 text-red-500 font-bold">{error}</div>;
 
   return (
@@ -566,14 +600,17 @@ export default function PanelGestion({ onLogout }) {
               </div>
 
               <div className="flex flex-col gap-4 overflow-y-auto pr-2 max-h-[70vh] custom-scrollbar">
+                
                 {adoptantes.map((solicitud) => {
-                  const alertaCard = obtenerAlertaAdoptante(solicitud);
+                  const reportesAdoptante = obtenerReportesAdoptante(solicitud);
+                  const cantidadReportes = reportesAdoptante.length;
+
                   return (
-                    <div 
-                      key={solicitud.id} 
+                    <div
+                      key={solicitud.id}
                       onClick={() => setSeleccionado(solicitud)}
                       style={{
-                        borderColor: seleccionado?.id === solicitud.id ? tema.principal : (alertaCard ? '#fca5a5' : 'transparent'),
+                        borderColor: seleccionado?.id === solicitud.id ? tema.principal : (cantidadReportes > 0 ? '#fca5a5' : 'transparent'),
                         boxShadow: seleccionado?.id === solicitud.id ? `0 4px 15px -3px ${tema.principal}40` : ''
                       }}
                       className={`p-5 rounded-4xl border-2 cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-md ${
@@ -584,10 +621,20 @@ export default function PanelGestion({ onLogout }) {
                         <div>
                           <h3 className="font-extrabold text-slate-800 text-lg flex items-center gap-2 flex-wrap">
                             {solicitud.nombre_adoptante || 'Sin Nombre'}
-                            {alertaCard && (
-                              <span className="bg-red-100 text-red-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
-                                🚨 Reportado
-                              </span>
+                            
+                            {/* BOTÓN DE REPORTES (Solo aparece si hay > 0) */}
+                            {cantidadReportes > 0 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReportesDelAdoptante(reportesAdoptante);
+                                  setModalReportesAbierto(true);
+                                }}
+                                className="bg-red-100 hover:bg-red-200 transition text-red-700 text-[11px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer shadow-sm"
+                                title="Ver detalles de los reportes"
+                              >
+                                <AlertTriangle className="w-3 h-3" /> {cantidadReportes} Reporte{cantidadReportes !== 1 ? 's' : ''}
+                              </button>
                             )}
                           </h3>
                         </div>
@@ -626,19 +673,23 @@ export default function PanelGestion({ onLogout }) {
             {seleccionado && (
               <section className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden flex flex-col h-full min-h-[70vh]">
                 
-                {alertaDetalle && (
-                  <div className="mb-6 bg-red-50 border-2 border-red-300 rounded-3xl p-5 shadow-sm">
+                {reportesDetalle.length > 0 && (
+                  <div className="mb-6 bg-red-50 border-2 border-red-300 rounded-3xl p-5 shadow-sm flex flex-col gap-3">
                     <h4 className="font-extrabold text-red-700 flex items-center gap-2 text-sm mb-1">
-                      🚨 ¡Advertencia de la Red! Este adoptante cuenta con un reporte comunitario
+                      🚨 ¡Advertencia de la Red! Este adoptante cuenta con {reportesDetalle.length} reporte{reportesDetalle.length !== 1 ? 's' : ''} comunitario{reportesDetalle.length !== 1 ? 's' : ''}
                     </h4>
-                    <p className="text-xs text-red-600 font-medium mt-1">
-                      <span className="font-bold">Motivo de falta:</span> {alertaDetalle.tipo_falta || 'Incumplimiento / Irresponsabilidad'}
-                    </p>
-                    {alertaDetalle.descripcion && (
-                      <p className="text-xs text-slate-600 mt-1">
-                        <span className="font-bold">Descripción:</span> {alertaDetalle.descripcion}
-                      </p>
-                    )}
+                    {reportesDetalle.map((alerta, idx) => (
+                      <div key={idx} className="bg-white/60 p-3 rounded-xl border border-red-200">
+                        <p className="text-xs text-red-600 font-medium">
+                          <span className="font-bold">Motivo de falta:</span> {alerta.tipo_falta || 'Incumplimiento / Irresponsabilidad'}
+                        </p>
+                        {alerta.descripcion && (
+                          <p className="text-xs text-slate-600 mt-1">
+                            <span className="font-bold">Descripción:</span> {alerta.descripcion}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -665,8 +716,7 @@ export default function PanelGestion({ onLogout }) {
                     </div>
                   ))}
                 </div>
-
-                <div className="mb-auto">
+<div className="mb-auto">
                   <h3 className="font-extrabold text-slate-700 text-lg mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5" style={{ color: tema.secundario }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     Documentación Legal
@@ -891,6 +941,67 @@ export default function PanelGestion({ onLogout }) {
         )}
 
       </main>
+      {/* MODAL DE REPORTES INDIVIDUALES (LISTA ROJA) */}
+      {modalReportesAbierto && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg p-6 relative animate-in fade-in zoom-in duration-200">
+            <button 
+              onClick={() => setModalReportesAbierto(false)} 
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-500">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-800">Reportes del Adoptante</h2>
+                <p className="text-sm text-slate-500 font-medium">Historial en la lista roja</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              {reportesDelAdoptante.map((reporte, index) => (
+                <div key={index} className="bg-red-50 border border-red-100 rounded-2xl p-4 flex flex-col gap-2">
+                  <div className="flex justify-between items-start">
+                    <span className="bg-red-200 text-red-800 text-xs font-bold px-2 py-1 rounded-md uppercase">
+                      {reporte.tipo_falta}
+                    </span>
+                    <span className="text-xs text-red-400 font-medium">
+                      {reporte.fecha_reporte ? new Date(reporte.fecha_reporte).toLocaleDateString() : 'Fecha desconocida'}
+                    </span>
+                  </div>
+                  
+                  <p className="text-sm text-red-900 font-medium mt-1">
+                    <strong className="text-red-700">RUT / Identificación:</strong> {reporte.adoptante_rut}
+                  </p>
+                  
+                  {reporte.refugio_id && (
+                    <p className="text-sm text-red-900 font-medium">
+                      <strong className="text-red-700">Reportado por refugio ID:</strong> {reporte.refugio_id}
+                    </p>
+                  )}
+
+                  <p className="text-sm text-red-800 mt-2 bg-white/60 p-3 rounded-xl border border-red-100/50">
+                    {reporte.descripcion}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button 
+                onClick={() => setModalReportesAbierto(false)} 
+                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DETALLES DE MASCOTA */}
       {animalSeleccionado && (
@@ -987,6 +1098,61 @@ export default function PanelGestion({ onLogout }) {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL DETALLES DE MASCOTA */}
+      {animalSeleccionado && (
+        <div className="fixed inset-0 bg-slate-900/40 z-50 ...">
+          {/* ... todo el código del modal de la mascota ... */}
+        </div>
+      )}
+
+      {/* 🚨 MODAL HISTORIAL DE REPORTES DEL ADOPTANTE (PÉGALO AQUÍ) 🚨 */}
+      {modalReportesAbierto && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-red-50">
+              <h3 className="font-bold text-red-600 flex items-center gap-2 text-lg">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                Historial de Reportes
+              </h3>
+              <button onClick={() => setModalReportesAbierto(false)} className="text-red-400 hover:text-red-600 transition">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto max-h-[60vh] bg-slate-50 flex flex-col gap-3">
+              <p className="text-sm font-medium text-slate-500 mb-2">
+                Esta persona tiene <strong>{reportesDelAdoptante.length} advertencia(s)</strong> registradas en la red.
+              </p>
+              
+              {reportesDelAdoptante.map((reporte, index) => (
+                <div key={reporte.id || index} className="p-4 bg-white border-l-4 border-red-500 rounded-xl shadow-sm">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-extrabold text-slate-700 text-sm">{reporte.tipo_falta}</span>
+                    <span className="text-xs font-bold text-slate-400">
+                      {reporte.fecha_reporte ? new Date(reporte.fecha_reporte).toLocaleDateString() : 'Sin fecha'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 mt-1 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    {reporte.descripcion || 'Sin descripción detallada.'}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-white flex justify-end">
+              <button
+                onClick={() => setModalReportesAbierto(false)}
+                className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition"
+              >
+                Entendido
+              </button>
             </div>
           </div>
         </div>

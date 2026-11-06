@@ -1,33 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, MapPin, Phone, Mail, ArrowRight, Search, User, LogOut, Sparkles } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, ArrowRight, Search, User, LogOut, Sparkles, HeartHandshake, Eye } from 'lucide-react';
 
 export default function DirectorioFundaciones() {
   const navigate = useNavigate();
   const [fundaciones, setFundaciones] = useState([]);
+  const [postulaciones, setPostulaciones] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
+  const [mostrarMisPostulaciones, setMostrarMisPostulaciones] = useState(false);
 
   useEffect(() => {
-    const fetchFundaciones = async () => {
+    const cargarDatos = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/refugios`);
-        if (res.ok) {
-          const data = await res.json();
+        const token = localStorage.getItem('token');
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+        // 1. Cargar Fundaciones
+        const resFundaciones = await fetch(`${apiBase}/refugios`);
+        if (resFundaciones.ok) {
+          const data = await resFundaciones.json();
           const lista = Array.isArray(data) ? data : (data.datos || data.refugios || data.data || []);
           setFundaciones(lista);
-        } else {
-          setFundaciones([]);
+        }
+
+        // 2. Cargar Mis Postulaciones (si el adoptante inició sesión)
+        if (token) {
+          const resPostulaciones = await fetch(`${apiBase}/postulaciones`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (resPostulaciones.ok) {
+            const dataPost = await resPostulaciones.json();
+            const listaPost = Array.isArray(dataPost) ? dataPost : (dataPost.datos || []);
+            setPostulaciones(listaPost);
+          }
         }
       } catch (error) {
-        console.error('Error al cargar fundaciones:', error);
-        setFundaciones([]);
+        console.error('Error al cargar datos:', error);
       } finally {
         setCargando(false);
       }
     };
 
-    fetchFundaciones();
+    cargarDatos();
   }, []);
 
   const handleLogout = () => {
@@ -52,7 +67,7 @@ export default function DirectorioFundaciones() {
 
       {/* Barra de Navegación del Adoptante */}
       <header className="bg-white/85 backdrop-blur-md border-b border-pink-100 sticky top-0 z-30 px-6 py-4 shadow-sm">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
+        <div className="max-w-6xl mx-auto flex justify-between items-center flex-wrap gap-4">
           <div 
             className="flex items-center gap-2.5 cursor-pointer group" 
             onClick={() => navigate('/fundaciones')}
@@ -66,6 +81,20 @@ export default function DirectorioFundaciones() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Botón para ver Estado de Postulaciones */}
+            <button
+              onClick={() => setMostrarMisPostulaciones(!mostrarMisPostulaciones)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-purple-100 text-purple-700 font-bold text-xs hover:bg-purple-200 transition shadow-sm active:scale-95 relative"
+            >
+              <HeartHandshake className="w-4 h-4" />
+              <span>Mis Postulaciones</span>
+              {postulaciones.length > 0 && (
+                <span className="bg-purple-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                  {postulaciones.length}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={() => navigate('/perfil-adoptante')}
               className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-pink-100 text-pink-600 font-bold text-xs hover:bg-pink-200 transition shadow-sm active:scale-95"
@@ -85,8 +114,77 @@ export default function DirectorioFundaciones() {
         </div>
       </header>
 
-      {/* Hero / Encabezado */}
+      {/* CONTENIDO PRINCIPAL */}
       <main className="max-w-6xl mx-auto p-6 md:p-12 relative z-10">
+
+        {/* SECCIÓN DESPLEGABLE: ESTADO DE MIS POSTULACIONES */}
+        {(mostrarMisPostulaciones || postulaciones.length > 0) && (
+          <div className="mb-12 bg-white/90 backdrop-blur-md border-2 border-purple-200 rounded-[2.5rem] p-6 md:p-8 shadow-xl animate-fadeIn">
+            <div className="flex justify-between items-center mb-6 border-b border-purple-100 pb-4">
+              <div>
+                <h3 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                  Mis Postulaciones Activas 💌
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Revisa en qué etapa se encuentra cada una de tus solicitudes de adopción.
+                </p>
+              </div>
+              <span className="px-4 py-1.5 bg-purple-100 text-purple-700 font-extrabold text-xs rounded-full">
+                {postulaciones.length} Registrada{postulaciones.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {postulaciones.length === 0 ? (
+              <p className="text-center py-6 text-slate-400 text-sm font-medium">
+                Aún no has enviado postulaciones para adoptar. ¡Explora las fundaciones abajo! 🐾
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {postulaciones.map((post) => (
+                  <div 
+                    key={post.id}
+                    className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center gap-4 hover:bg-purple-50/40 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      {post.foto_animal ? (
+                        <img src={post.foto_animal} alt={post.nombre_animal} className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-sm" />
+                      ) : (
+                        <div className="w-14 h-14 bg-pink-100 text-pink-500 rounded-2xl flex items-center justify-center font-extrabold text-xl shadow-inner">
+                          🐶
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-extrabold text-slate-800 text-base">
+                          {post.nombre_animal || 'Mascota'}
+                        </h4>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {post.nombre_refugio || 'Refugio Registrado'}
+                        </p>
+                        <span className={`inline-block mt-1 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full ${
+                          post.estado_postulacion === 'Rechazada' 
+                            ? 'bg-red-100 text-red-700' 
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          Etapa: {post.estado_postulacion || 'En Revisión'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => navigate(`/mis-postulaciones/${post.id}`)}
+                      className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 shrink-0"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Ver Seguimiento</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hero / Encabezado del Directorio */}
         <div className="text-center mb-12 max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-100 text-pink-600 font-extrabold text-xs mb-4 shadow-sm">
             <Sparkles className="w-4 h-4" />
@@ -112,7 +210,7 @@ export default function DirectorioFundaciones() {
           </div>
         </div>
 
-        {/* Tarjetas de Fundaciones con Skeletons de Carga */}
+        {/* Tarjetas de Fundaciones */}
         {cargando ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((n) => (

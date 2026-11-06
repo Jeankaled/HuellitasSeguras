@@ -86,6 +86,13 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-sky-100 p-4 relative overflow-hidden">
       
+      {/* 📱 AJUSTE: Botón Volver más pequeño en celular (top-4, p-2, text-sm) y grande en PC (md:top-6, md:px-5) */}
+      <button 
+        onClick={() => navigate('/')} 
+        className="group absolute top-4 left-4 md:top-6 md:left-6 z-20 flex items-center gap-1 md:gap-2 bg-white/90 backdrop-blur-md px-3 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl shadow-sm hover:shadow-lg border-2 border-white hover:border-pink-200 transition-all duration-300 text-sky-700 font-extrabold text-xs md:text-base hover:text-pink-500 hover:-translate-y-1"
+      >
+        
+      </button>
       {/* Botón Volver a la Página Principal (Estilizado) */}
       <button 
         onClick={() => navigate('/')} 
