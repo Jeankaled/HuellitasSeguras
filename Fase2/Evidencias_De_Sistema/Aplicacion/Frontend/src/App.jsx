@@ -13,7 +13,8 @@ import PerfilAdoptante from './pages/PerfilAdoptante';
 import DirectorioFundaciones from './pages/DirectorioFundaciones';
 import CatalogoMascotasRefugio from './pages/CatalogoMascotasRefugio';
 import FormularioAdopcion from './pages/FormularioAdopcion';
-import DetallePostulacionAdoptante from './pages/DetallePostulacionAdoptante'; // 👈 Se agregó la importación
+// Se asume que este es el componente que creamos recientemente
+import SeguimientoPostulacion from './pages/SeguimientoPostulacion';
 
 // Función auxiliar para determinar la ruta por defecto según el rol del usuario
 const obtenerRutaPorRol = () => {
@@ -57,7 +58,6 @@ function App() {
 
   return (
     <Router>
-      {/* El Toaster va justo dentro del Router, antes de las rutas */}
       <Toaster position="top-center" /> 
       
       <Routes>
@@ -110,13 +110,13 @@ function App() {
         <Route path="/catalogo-adoptante" element={<CatalogoMascotasRefugio />} />
         <Route path="/formulario-adopcion" element={<FormularioAdopcion />} />
 
-        {/* NUEVA RUTA: Detalle de Postulación (Vista para el Adoptante) */}
+        {/* 9. NUEVA RUTA: Detalle de Seguimiento de Postulación (Vista para el Adoptante) */}
         <Route 
           path="/mis-postulaciones/:id" 
-          element={token ? <DetallePostulacionAdoptante /> : <Navigate to="/login" replace />} 
+          element={token ? <SeguimientoPostulacion /> : <Navigate to="/login" replace />} 
         />
 
-        {/* 9. Comodín: Captura rutas rotas (SIEMPRE AL FINAL) */}
+        {/* 10. Comodín: Captura rutas rotas (SIEMPRE AL FINAL, DENTRO DE ROUTES) */}
         <Route 
           path="*" 
           element={<Navigate to={token ? rutaPorDefecto : "/"} replace />} 

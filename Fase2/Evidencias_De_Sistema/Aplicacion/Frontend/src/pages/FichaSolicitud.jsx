@@ -517,13 +517,28 @@ export default function FichaSolicitud() {
                 <p className="text-sm text-slate-400 mt-0.5">Etapa 4: Registro de actividad y emisión de contrato digital (Firma OTP)</p>
               </div>
 
-              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-3">
-                <div className="flex items-center gap-2 font-bold text-slate-700">
+              {/* AQUÍ VA TU NUEVO CÓDIGO (con 'solicitud' en vez de 'postulacion') */}
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mt-4">
+                <div className="flex items-center gap-2 font-bold text-slate-700 mb-4">
                   <Clock className="w-5 h-5 text-slate-400"/> Registro de Actividad
                 </div>
-                <p className="text-slate-600 text-sm">
-                  • Postulación recibida y en proceso de revisión de antecedentes.
-                </p>
+                
+                {solicitud.historial && solicitud.historial.length > 0 ? (
+                    <ul className="space-y-3">
+                        {solicitud.historial.map((evento) => (
+                            <li key={evento.id} className="flex gap-3 text-sm text-slate-600">
+                                <span className="text-slate-400 whitespace-nowrap">
+                                    {new Date(evento.fecha).toLocaleDateString()}
+                                </span>
+                                <span>
+                                    <strong>{evento.accion}</strong> {evento.detalle && `- ${evento.detalle}`}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="text-sm text-slate-500">No hay actividad registrada aún.</p>
+                )}
               </div>
 
               {/* Botones de Navegación de Etapa */}
