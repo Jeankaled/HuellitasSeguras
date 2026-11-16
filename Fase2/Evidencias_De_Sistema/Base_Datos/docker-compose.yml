@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: admin_huellita
-      POSTGRES_PASSWORD: admin 
+      POSTGRES_PASSWORD: HuellitaSeguraPassword
       POSTGRES_DB: huellita_segura_db
     ports:
       - "5432:5432"
