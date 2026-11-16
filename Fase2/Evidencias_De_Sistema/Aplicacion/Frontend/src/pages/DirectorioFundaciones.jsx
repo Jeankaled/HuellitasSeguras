@@ -1,33 +1,47 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, MapPin, Phone, Mail, ArrowRight, Search, User, LogOut, Sparkles } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, ArrowRight, Search, User, LogOut, Sparkles, HeartHandshake } from 'lucide-react';
 
 export default function DirectorioFundaciones() {
   const navigate = useNavigate();
   const [fundaciones, setFundaciones] = useState([]);
+  const [postulaciones, setPostulaciones] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    const fetchFundaciones = async () => {
+    const cargarDatos = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/refugios`);
-        if (res.ok) {
-          const data = await res.json();
+        const token = localStorage.getItem('token');
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+        // 1. Cargar Fundaciones
+        const resFundaciones = await fetch(`${apiBase}/refugios`);
+        if (resFundaciones.ok) {
+          const data = await resFundaciones.json();
           const lista = Array.isArray(data) ? data : (data.datos || data.refugios || data.data || []);
           setFundaciones(lista);
-        } else {
-          setFundaciones([]);
+        }
+
+        // 2. Cargar Mis Postulaciones (si el adoptante inició sesión)
+        if (token) {
+          const resPostulaciones = await fetch(`${apiBase}/postulaciones`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (resPostulaciones.ok) {
+            const dataPost = await resPostulaciones.json();
+            const listaPost = Array.isArray(dataPost) ? dataPost : (dataPost.datos || []);
+            setPostulaciones(listaPost);
+          }
         }
       } catch (error) {
-        console.error('Error al cargar fundaciones:', error);
-        setFundaciones([]);
+        console.error('Error al cargar datos:', error);
       } finally {
         setCargando(false);
       }
     };
 
-    fetchFundaciones();
+    cargarDatos();
   }, []);
 
   const handleLogout = () => {
@@ -52,7 +66,7 @@ export default function DirectorioFundaciones() {
 
       {/* Barra de Navegación del Adoptante */}
       <header className="bg-white/85 backdrop-blur-md border-b border-pink-100 sticky top-0 z-30 px-6 py-4 shadow-sm">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
+        <div className="max-w-6xl mx-auto flex justify-between items-center flex-wrap gap-4">
           <div 
             className="flex items-center gap-2.5 cursor-pointer group" 
             onClick={() => navigate('/fundaciones')}
@@ -66,6 +80,20 @@ export default function DirectorioFundaciones() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Botón modificado para ir directo a la prueba (postulación 1) */}
+            <button
+              onClick={() => navigate('/mis-postulaciones/1')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-purple-100 text-purple-700 font-bold text-xs hover:bg-purple-200 transition shadow-sm active:scale-95 relative"
+            >
+              <HeartHandshake className="w-4 h-4" />
+              <span>Mis Postulaciones</span>
+              {postulaciones.length > 0 && (
+                <span className="bg-purple-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                  {postulaciones.length}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={() => navigate('/perfil-adoptante')}
               className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-pink-100 text-pink-600 font-bold text-xs hover:bg-pink-200 transition shadow-sm active:scale-95"
@@ -85,8 +113,10 @@ export default function DirectorioFundaciones() {
         </div>
       </header>
 
-      {/* Hero / Encabezado */}
+      {/* CONTENIDO PRINCIPAL */}
       <main className="max-w-6xl mx-auto p-6 md:p-12 relative z-10">
+
+        {/* Hero / Encabezado del Directorio */}
         <div className="text-center mb-12 max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-100 text-pink-600 font-extrabold text-xs mb-4 shadow-sm">
             <Sparkles className="w-4 h-4" />
@@ -112,7 +142,7 @@ export default function DirectorioFundaciones() {
           </div>
         </div>
 
-        {/* Tarjetas de Fundaciones con Skeletons de Carga */}
+        {/* Tarjetas de Fundaciones */}
         {cargando ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((n) => (
