@@ -2,16 +2,30 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 
+const limitadorGeneral = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 1000, 
+    message: { error: "Demasiadas peticiones. Por favor intenta de nuevo en 15 minutos." }
+});
+
+const limitadorEstricto = rateLimit({
+    windowMs: 5 * 60 * 1000, 
+    max: 50,
+    skipSuccessfulRequests: true,
+    message: { error: "Demasiados intentos. Por seguridad, espera 15 minutos." }
+});
+
+
 app.use(cors()); 
 app.use(express.json()); 
 app.use('/uploads', express.static('uploads')); 
-
+app.use(limitadorGeneral);
 
 // 1. IMPORTAR MIDDLEWARE DE SEGURIDAD
 const verificarToken = require('./middlewares/verificarToken');
@@ -38,8 +52,8 @@ app.get('/', (req, res) => {
 });
 
 // Rutas Públicas
-app.use('/', rutaAuth); // Contiene el POST /login
-app.use('/refugios', rutasRefugios);
+app.use('/',limitadorEstricto, rutaAuth); 
+app.use('/refugios',  rutasRefugios);
 app.use('/adoptantes', rutasAdoptantes);
 
 // Rutas Privadas (Protegidas por el Middleware)
@@ -49,7 +63,7 @@ app.use('/animales', verificarToken, rutasAnimales);
 
 app.use('/usuarios', verificarToken, rutasUsuarios);
 app.use('/postulaciones', verificarToken, rutasPostulaciones);
-app.use('/reportes-adoptantes', verificarToken, rutasReportes);
+app.use('/reportes-adoptantes',   verificarToken, rutasReportes);
 
 
 

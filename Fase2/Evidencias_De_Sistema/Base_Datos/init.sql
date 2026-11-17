@@ -32,7 +32,7 @@ CREATE TABLE Animales (
   sexo VARCHAR(20),
   edad varchar(50),
   fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  estado VARCHAR(50) DEFAULT 'En adopción', -- Opciones: En adopción, Adoptado, No adoptable
+  estado VARCHAR(50) DEFAULT 'En adopción', 
   microchip VARCHAR(50) UNIQUE,
   foto varchar(255),
   historia text
@@ -80,7 +80,7 @@ CREATE TABLE Postulaciones (
   animal_id INTEGER REFERENCES Animales(id) ON DELETE CASCADE,
   refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
   fecha_postulacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  estado_postulacion VARCHAR(50) DEFAULT 'En Revisión', -- Opciones: En Revisión, Aprobada, Rechazada
+  estado_postulacion VARCHAR(50) DEFAULT 'En Revisión',
   foto_cedula_url VARCHAR(255),
   foto_domicilio_url VARCHAR(255),
   comprobante_ingresos_url VARCHAR(255),
@@ -99,4 +99,12 @@ CREATE TABLE Reportes_Adoptantes (
   tipo_falta VARCHAR(100) NOT NULL,
   descripcion TEXT,
   fecha_reporte TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE Historial_Postulaciones (
+  id SERIAL PRIMARY KEY,
+  postulacion_id INTEGER REFERENCES Postulaciones(id) ON DELETE CASCADE,
+  accion VARCHAR(255) NOT NULL,
+  detalle TEXT,
+  fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
