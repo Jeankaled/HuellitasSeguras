@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import toast from 'react-hot-toast'; // 👈 IMPORTANTE: Agregado para que las notificaciones funcionen
+import toast from 'react-hot-toast';
+import { X, Scale, FileText, Shield, CheckCircle } from 'lucide-react'; // 👈 Importamos iconos para el modal
 
 export default function Registro() {
   const navigate = useNavigate();
@@ -17,16 +18,19 @@ export default function Registro() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
-  // Estados para los Terminos y Leyes (Tickets obligatorios)
+  // Estados para los Terminos y Leyes
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [aceptaLeyes, setAceptaLeyes] = useState(false);
+  
+  // 👈 NUEVO: Estado para controlar el Modal Legal
+  const [modalLegal, setModalLegal] = useState({ abierto: false, seccion: 'terminos' });
 
   // Datos Adoptante
   const [nombreAdoptante, setNombreAdoptante] = useState('');
   const [apellidoAdoptante, setApellidoAdoptante] = useState('');
   const [rutAdoptante, setRutAdoptante] = useState('');
   const [rutAdoptanteError, setRutAdoptanteError] = useState('');
-  const [direccionAdoptante, setDireccionAdoptante] = useState(''); // 📍 Estado para la dirección del adoptante
+  const [direccionAdoptante, setDireccionAdoptante] = useState('');
 
   // Datos Fundación
   const [nombreOrg, setNombreOrg] = useState('');
@@ -45,17 +49,10 @@ export default function Registro() {
   // Formateador de RUT automático para Fundaciones
   const handleRutChange = (e) => {
     let value = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
-    
     if (value.length === 0) {
-      setRut('');
-      setRutError('');
-      return;
+      setRut(''); setRutError(''); return;
     }
-
-    if (value.length > 9) {
-      value = value.slice(0, 9);
-    }
-
+    if (value.length > 9) value = value.slice(0, 9);
     if (value.length > 1) {
       let body = value.slice(0, -1);
       let dv = value.slice(-1);
@@ -64,24 +61,16 @@ export default function Registro() {
     } else {
       setRut(value);
     }
-    
     setRutError('');
   };
 
   // Formateador de RUT automático para Adoptantes
   const handleRutAdoptanteChange = (e) => {
     let value = e.target.value.replace(/[^0-9kK]/g, '').toUpperCase();
-    
     if (value.length === 0) {
-      setRutAdoptante('');
-      setRutAdoptanteError('');
-      return;
+      setRutAdoptante(''); setRutAdoptanteError(''); return;
     }
-
-    if (value.length > 9) {
-      value = value.slice(0, 9);
-    }
-
+    if (value.length > 9) value = value.slice(0, 9);
     if (value.length > 1) {
       let body = value.slice(0, -1);
       let dv = value.slice(-1);
@@ -90,7 +79,6 @@ export default function Registro() {
     } else {
       setRutAdoptante(value);
     }
-    
     setRutAdoptanteError('');
   };
 
@@ -99,21 +87,16 @@ export default function Registro() {
     if (!rutInput) return false;
     const cleanRUT = rutInput.replace(/[^0-9K]/ig, '').toUpperCase();
     if (cleanRUT.length < 8) return false;
-
     const body = cleanRUT.slice(0, -1);
     const dv = cleanRUT.slice(-1);
-    
     let sum = 0;
     let multiplier = 2;
-    
     for (let i = body.length - 1; i >= 0; i--) {
       sum += parseInt(body.charAt(i), 10) * multiplier;
       multiplier = multiplier < 7 ? multiplier + 1 : 2;
     }
-    
     const expectedDv = 11 - (sum % 11);
     const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : expectedDv.toString();
-    
     return dv === calculatedDv;
   };
 
@@ -125,6 +108,11 @@ export default function Registro() {
     }
   };
 
+  const abrirModalLegal = (seccion, e) => {
+    e.preventDefault(); // Evita que se marque el checkbox al hacer clic en el texto
+    setModalLegal({ abierto: true, seccion });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -133,7 +121,6 @@ export default function Registro() {
       return;
     }
 
-    // Validación de terminos y leyes obligatorios mediante los tickets
     if (!aceptaTerminos || !aceptaLeyes) {
       toast.error('Debes aceptar los Términos y Condiciones y las Leyes Chilenas vigentes para registrarte.');
       return;
@@ -176,15 +163,10 @@ export default function Registro() {
 
         const data = await respuesta.json();
         
-        if (!respuesta.ok) {
-           throw new Error(data.error || 'Error al registrar fundación');
-        }
+        if (!respuesta.ok) throw new Error(data.error || 'Error al registrar fundación');
 
         toast.success('¡Fundación y Administrador creados con éxito! Redirigiendo...', { id: toastId });
-        
-        setTimeout(() => {
-          navigate('/login');
-        }, 1500);
+        setTimeout(() => navigate('/login'), 1500);
 
       } else {
         const adoptanteData = {
@@ -193,7 +175,7 @@ export default function Registro() {
           email: correo,
           password: password,
           telefono: telefono,
-          direccion: direccionAdoptante // 📍 Dirección añadida correctamente con su coma
+          direccion: direccionAdoptante
         };
 
         const respuesta = await fetch(`${import.meta.env.VITE_API_URL}/adoptantes`, { 
@@ -204,9 +186,7 @@ export default function Registro() {
 
         const data = await respuesta.json();
 
-        if (!respuesta.ok) {
-           throw new Error(data.error || 'Hubo un error al registrar el adoptante');
-        }
+        if (!respuesta.ok) throw new Error(data.error || 'Hubo un error al registrar el adoptante');
         
         if (data.token) {
           localStorage.setItem('token', data.token);
@@ -216,10 +196,7 @@ export default function Registro() {
         }
 
         toast.success('¡Cuenta de adoptante creada con éxito! Configurando preferencias...', { id: toastId });
-        
-        setTimeout(() => {
-          navigate('/preferencias-adoptante');
-        }, 1500);
+        setTimeout(() => navigate('/preferencias-adoptante'), 1500);
       }
 
     } catch (error) {
@@ -231,7 +208,69 @@ export default function Registro() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans text-slate-700">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans text-slate-700 relative overflow-hidden">
+      
+      {/* 🏛️ MODAL LEGAL DINÁMICO */}
+      {modalLegal.abierto && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl relative">
+            <button 
+              onClick={() => setModalLegal({ abierto: false, seccion: 'terminos' })}
+              className="absolute right-5 top-5 p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="p-6 md:p-8 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3 mb-2">
+                <Scale className="w-8 h-8 text-pink-500" />
+                <h2 className="text-xl md:text-2xl font-extrabold text-slate-800">Marco Legal y Términos</h2>
+              </div>
+              <p className="text-sm text-slate-500">Transparencia y responsabilidades en Huellita Segura.</p>
+            </div>
+
+            <div className="p-6 md:p-8 overflow-y-auto space-y-8 custom-scrollbar">
+              
+              {/* Sección Términos y Datos */}
+              <div className={modalLegal.seccion === 'terminos' ? 'opacity-100' : 'opacity-60'}>
+                <div className="flex items-center gap-2 mb-3 text-pink-500">
+                  <Shield className="w-5 h-5" />
+                  <h3 className="font-bold text-slate-800 text-lg">Términos de Uso y Privacidad</h3>
+                </div>
+                <ul className="space-y-3 text-sm text-slate-600 bg-slate-50 p-5 rounded-2xl">
+                  <li><strong>Uso de la Plataforma:</strong> Huellita Segura actúa como intermediario tecnológico. Toda información proporcionada debe ser verídica.</li>
+                  <li><strong>Ley 19.628 (Protección de Datos):</strong> Tus datos personales (RUT, dirección, ingresos) son encriptados y compartidos <span className="underline">únicamente</span> con la fundación al momento de postular.</li>
+                  <li><strong>Ley 21.719 (Ciberseguridad):</strong> Implementamos estándares de seguridad para evitar accesos no autorizados a tu información.</li>
+                </ul>
+              </div>
+
+              {/* Sección Tenencia Responsable y Contratos */}
+              <div className={modalLegal.seccion === 'leyes' ? 'opacity-100' : 'opacity-60'}>
+                <div className="flex items-center gap-2 mb-3 text-pink-500">
+                  <FileText className="w-5 h-5" />
+                  <h3 className="font-bold text-slate-800 text-lg">Legislación Vigente</h3>
+                </div>
+                <ul className="space-y-3 text-sm text-slate-600 bg-slate-50 p-5 rounded-2xl">
+                  <li><strong>Ley 21.020 (Tenencia Responsable):</strong> Conocida como "Ley Cholito". Obliga a registrar a la mascota, proporcionarle alimento, hogar y buen trato, además de cuidados veterinarios indispensables y no someterla a sufrimientos.</li>
+                  <li><strong>Prohibición de Abandono:</strong> El abandono animal es considerado maltrato y sancionado penalmente bajo el Código Penal.</li>
+                  <li><strong>Ley 19.799 (Documentos Electrónicos):</strong> Al marcar las casillas de aceptación y al firmar un contrato de adopción digital en esta plataforma, reconoces su total validez jurídica y legal como si fuera un documento físico.</li>
+                </ul>
+              </div>
+
+            </div>
+
+            <div className="p-6 border-t border-slate-100 shrink-0 bg-slate-50 rounded-b-3xl">
+              <button 
+                onClick={() => setModalLegal({ abierto: false, seccion: 'terminos' })}
+                className="w-full py-3.5 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2"
+              >
+                <CheckCircle className="w-5 h-5" /> He leído y comprendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl w-full bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col lg:flex-row min-h-150">
         
         <div className="w-full lg:w-3/5 p-8 lg:p-12 overflow-y-auto max-h-[90vh]">
@@ -286,7 +325,6 @@ export default function Registro() {
                     className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
                   />
                   
-                  {/* RUT Adoptante Formateado con Validación */}
                   <div className="w-full md:col-span-2">
                     <input 
                       type="text" placeholder="📄 RUT (Ej. 12.345.678-9)" 
@@ -304,7 +342,6 @@ export default function Registro() {
                     className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2" required
                   />
                   
-                  {/* Contraseña Adoptante con Ojo */}
                   <div className="relative w-full">
                     <input 
                       type={showPassword ? "text" : "password"} placeholder="🔒 Contraseña" 
@@ -324,7 +361,6 @@ export default function Registro() {
                     </button>
                   </div>
 
-                  {/* Confirmar Contraseña Adoptante con Ojo */}
                   <div className="relative w-full">
                     <input 
                       type={showConfirmPassword ? "text" : "password"} placeholder="🔒 Confirmar Contraseña" 
@@ -344,7 +380,6 @@ export default function Registro() {
                     </button>
                   </div>
 
-                  {/* Mensaje de error de contraseñas */}
                   {passwordError && (
                     <div className="md:col-span-2 -mt-2">
                       <p className="text-red-500 text-xs ml-1 font-medium">{passwordError}</p>
@@ -357,7 +392,6 @@ export default function Registro() {
                     className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2"
                   />
 
-                  {/* 📍 Input de Dirección para Adoptantes */}
                   <input 
                     type="text" placeholder="📍 Dirección (Ej. Av. Libertador 123)" 
                     value={direccionAdoptante} onChange={(e) => setDireccionAdoptante(e.target.value)}
@@ -378,7 +412,6 @@ export default function Registro() {
                       className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm" required
                     />
                     
-                    {/* Campo RUT Formateado con Validación */}
                     <div className="w-full">
                       <input 
                         type="text" placeholder="📄 RUT Organización" 
@@ -396,7 +429,6 @@ export default function Registro() {
                       className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-pink-300 text-sm md:col-span-2" required
                     />
                     
-                    {/* Contraseña Fundación con Ojo */}
                     <div className="relative w-full">
                       <input 
                         type={showPassword ? "text" : "password"} placeholder="🔒 Contraseña Segura" 
@@ -416,7 +448,6 @@ export default function Registro() {
                       </button>
                     </div>
 
-                    {/* Confirmar Contraseña Fundación con Ojo */}
                     <div className="relative w-full">
                       <input 
                         type={showConfirmPassword ? "text" : "password"} placeholder="🔒 Confirmar Contraseña" 
@@ -436,7 +467,6 @@ export default function Registro() {
                       </button>
                     </div>
 
-                    {/* Mensaje de error de contraseñas */}
                     {passwordError && (
                       <div className="md:col-span-2 -mt-2">
                         <p className="text-red-500 text-xs ml-1 font-medium">{passwordError}</p>
@@ -501,29 +531,29 @@ export default function Registro() {
               </div>
             )}
 
-            {/* 📋 TICKETS OBLIGATORIOS DE TÉRMINOS Y LEYES CHILENAS */}
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <label className="flex items-start gap-3 cursor-pointer select-none">
+            {/* 📋 TICKETS OBLIGATORIOS INTERACTIVOS */}
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input 
                   type="checkbox" 
                   checked={aceptaTerminos} 
                   onChange={(e) => setAceptaTerminos(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-pink-500 rounded border-slate-300 focus:ring-pink-300 cursor-pointer"
+                  className="mt-1 w-5 h-5 text-pink-500 rounded border-slate-300 focus:ring-pink-300 cursor-pointer shrink-0"
                 />
-                <span className="text-xs text-slate-600">
-                  Acepto los <strong className="text-slate-800">Términos y Condiciones de Uso</strong> y el tratamiento confidencial de mis datos personales según la <strong className="text-slate-800">Ley 19.628 / 21.719</strong> de Protección a la Vida Privada.
+                <span className="text-sm text-slate-600 leading-tight">
+                  Acepto los <button onClick={(e) => abrirModalLegal('terminos', e)} className="text-pink-500 font-bold hover:underline">Términos y Condiciones de Uso</button> y el tratamiento confidencial de mis datos personales según la <button onClick={(e) => abrirModalLegal('terminos', e)} className="text-pink-500 font-bold hover:underline">Ley 19.628 / 21.719</button>.
                 </span>
               </label>
 
-              <label className="flex items-start gap-3 cursor-pointer select-none">
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input 
                   type="checkbox" 
                   checked={aceptaLeyes} 
                   onChange={(e) => setAceptaLeyes(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-pink-500 rounded border-slate-300 focus:ring-pink-300 cursor-pointer"
+                  className="mt-1 w-5 h-5 text-pink-500 rounded border-slate-300 focus:ring-pink-300 cursor-pointer shrink-0"
                 />
-                <span className="text-xs text-slate-600">
-                  Me comprometo al cumplimiento de la <strong className="text-slate-800">Ley 21.020 (Tenencia Responsable)</strong> y acepto la validez jurídica de los contratos de adopción firmados electrónicamente mediante la <strong className="text-slate-800">Ley 19.799</strong>.
+                <span className="text-sm text-slate-600 leading-tight">
+                  Me comprometo al cumplimiento de la <button onClick={(e) => abrirModalLegal('leyes', e)} className="text-pink-500 font-bold hover:underline">Ley 21.020 (Tenencia Responsable)</button> y acepto la validez jurídica de los contratos bajo la <button onClick={(e) => abrirModalLegal('leyes', e)} className="text-pink-500 font-bold hover:underline">Ley 19.799</button>.
                 </span>
               </label>
             </div>

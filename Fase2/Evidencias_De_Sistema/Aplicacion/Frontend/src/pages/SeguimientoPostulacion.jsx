@@ -21,10 +21,11 @@ export default function SeguimientoPostulacion() {
   const obtenerEtapaNumerica = (estadoBackend) => {
     switch (estadoBackend) {
       case 'En Revisión': return 1;
-      case 'Entrevista': return 2;
-      case 'Contrato': return 3;
+      case 'En Evaluación': return 2; // Ajustado según tu panel de fundación
+      case 'Revisión de Documentos': return 3;
+      case 'Cierre y Contrato': return 3;
       case 'Aprobada': return 4;
-      case 'Rechazada': return 1; // O manejarlo de otra forma en la UI
+      case 'Rechazada': return 1; 
       default: return 1;
     }
   };
@@ -33,9 +34,10 @@ export default function SeguimientoPostulacion() {
     const cargarPostulacion = async () => {
       try {
         const token = localStorage.getItem('token');
-        const apiBase = 'http://localhost:3000/api';
+        // Usamos la variable de entorno que apunta directo al backend (ej: http://localhost:3000)
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         
-        // Fetch al endpoint que mostraste en backend/postulaciones.js (GET /:id)
+        // Fetch al endpoint del backend
         const respuesta = await fetch(`${apiBase}/postulaciones/${id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -44,29 +46,31 @@ export default function SeguimientoPostulacion() {
         
         if (respuesta.ok) {
           const json = await respuesta.json();
-          // El backend devuelve { mensaje: "...", datos: { ... } }
-          const dataBD = json.datos;
+          const dataBD = json.datos; // El backend devuelve { mensaje: "...", datos: {...}, historial: [...] }
 
-          // Mapeamos los datos planos de la BD a la estructura que espera la vista
+          // Mapeamos los datos de la BD a la estructura de la vista
           const datosFormateados = {
             id: dataBD.id,
             fecha_postulacion: dataBD.fecha_postulacion,
             etapa_actual: obtenerEtapaNumerica(dataBD.estado_postulacion),
             estado_general: dataBD.estado_postulacion,
             mascota: {
-              nombre: dataBD.nombre_animal,
-              foto: dataBD.foto_animal ? `http://localhost:3000/uploads/${dataBD.foto_animal}` : null,
+              nombre: dataBD.nombre_animal || 'Mascota',
+              foto: dataBD.foto_animal ? (dataBD.foto_animal.startsWith('http') ? dataBD.foto_animal : `${apiBase}/uploads/${dataBD.foto_animal}`) : null,
             },
             fundacion: {
-              nombre: dataBD.nombre_refugio,
-              // Opcional: si la BD agregara email o teléfono del refugio, lo mapeas aquí
+              nombre: dataBD.nombre_refugio || 'Fundación',
+              // El backend (GET /:id para Adoptantes) no trae el teléfono del refugio en la query actual,
+              // pero lo dejamos preparado por si lo agregas luego al SQL.
               telefono: dataBD.telefono_refugio || null 
             }
           };
 
           setPostulacion(datosFormateados);
         } else {
-          setError("No se pudo cargar la postulación");
+          // Si es 404, mostramos el mensaje que manda el backend
+          const errData = await respuesta.json().catch(() => ({}));
+          setError(errData.error || "No se pudo cargar la postulación");
         }
       } catch (err) {
         console.error("Error de red:", err);
@@ -80,10 +84,8 @@ export default function SeguimientoPostulacion() {
   }, [id]);
 
   const handleAgendar = () => {
-    // Opción A: Enviar a WhatsApp o Calendly
-    // Si tienes el número de la fundación, envías a WhatsApp
     if (postulacion?.fundacion?.telefono) {
-      const mensaje = `Hola, mi postulación por ${postulacion.mascota.nombre} fue aprobada en etapa 1 y me gustaría coordinar la entrevista.`;
+      const mensaje = `Hola, mi postulación por ${postulacion.mascota.nombre} está en evaluación y me gustaría coordinar la entrevista.`;
       window.open(`https://wa.me/${postulacion.fundacion.telefono}?text=${encodeURIComponent(mensaje)}`, '_blank');
     } else {
       alert("La fundación aún no ha configurado su número de contacto. Por favor revisa tu correo.");
@@ -103,7 +105,7 @@ export default function SeguimientoPostulacion() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <p className="text-red-500 font-bold mb-4">{error || "Postulación no encontrada"}</p>
-          <button onClick={() => navigate(-1)} className="text-purple-600 underline">Volver</button>
+          <button onClick={() => navigate(-1)} className="text-purple-600 underline font-medium">Volver a mis postulaciones</button>
         </div>
       </div>
     );
@@ -186,11 +188,23 @@ export default function SeguimientoPostulacion() {
             {/* VISTA ETAPA 1: Formulario */}
             {postulacion.etapa_actual === 1 && (
               <div className="text-center py-8">
-                <Clock className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-                <h3 className="text-2xl font-extrabold text-slate-800 mb-2">Formulario en Revisión</h3>
-                <p className="text-slate-500 max-w-md mx-auto">
-                  La fundación está leyendo tus respuestas. Si cumples con el perfil inicial, avanzaremos a la etapa de evaluación. ¡Atento a tu correo!
-                </p>
+                {postulacion.estado_general === 'Rechazada' ? (
+                  <>
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <h3 className="text-2xl font-extrabold text-slate-800 mb-2">Postulación Rechazada</h3>
+                    <p className="text-slate-500 max-w-md mx-auto">
+                      Lamentablemente, la fundación ha decidido no avanzar con tu solicitud en esta ocasión. Revisa tu correo electrónico, donde te enviaron el motivo de la decisión.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-2xl font-extrabold text-slate-800 mb-2">Formulario en Revisión</h3>
+                    <p className="text-slate-500 max-w-md mx-auto">
+                      La fundación está leyendo tus respuestas. Si cumples con el perfil inicial, avanzaremos a la etapa de evaluación. ¡Atento a tu correo!
+                    </p>
+                  </>
+                )}
               </div>
             )}
 
@@ -237,7 +251,7 @@ export default function SeguimientoPostulacion() {
                 <FileText className="w-12 h-12 text-amber-400 mx-auto mb-4" />
                 <h3 className="text-2xl font-extrabold text-slate-800 mb-2">Firma de Documentos</h3>
                 <p className="text-slate-500 max-w-md mx-auto mb-6">
-                  ¡Ya casi! Solo necesitamos que subas una copia de tu carnet de identidad y firmes el contrato de adopción responsable.
+                  ¡Ya casi! Solo necesitamos que subas una copia de tu carnet de identidad y los documentos requeridos por la fundación.
                 </p>
                 <button className="bg-amber-500 hover:bg-amber-600 text-white py-3 px-8 rounded-2xl font-extrabold shadow-md transition-all">
                   Subir Documentos
