@@ -15,23 +15,28 @@ export default function RecuperarPassword() {
     setLoading(true);
 
     try {
-      // Ajusta la ruta de la API según cómo lo tengas en tu backend
-      const respuesta = await fetch(`${import.meta.env.VITE_API_URL}/recuperar-password`, {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const respuesta = await fetch(`${apiBase}/recuperar-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.trim() }),
       });
 
-      const datos = await respuesta.json();
+      const texto = await respuesta.text();
+      let datos = {};
+      try {
+        datos = JSON.parse(texto);
+      } catch {
+        throw new Error('Error de conexión con el servidor (ruta no encontrada).');
+      }
 
       if (!respuesta.ok) {
         throw new Error(datos.error || 'Hubo un error al intentar enviar el correo.');
       }
 
-      // Por seguridad, siempre mostramos un mensaje de éxito genérico
-      setMensaje('Si tu correo está registrado, recibirás un enlace para restablecer tu contraseña en los próximos minutos.');
+      setMensaje(datos.mensaje || 'Si tu correo está registrado, recibirás un enlace para restablecer tu contraseña en los próximos minutos.');
       setEmail('');
 
     } catch (err) {

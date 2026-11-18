@@ -50,7 +50,11 @@ router.get('/', async (req, res) => {
     try {
         if (req.usuario.rol === 'Adoptante') {
             const query = `
-                SELECT p.*, a.nombre AS nombre_animal, r.nombre_organizacion AS nombre_refugio
+                SELECT p.*, 
+                    a.nombre AS nombre_animal, 
+                    a.especie AS especie_animal, 
+                    a.foto AS foto_animal,
+                    r.nombre_organizacion AS nombre_refugio
                 FROM Postulaciones p
                 LEFT JOIN Animales a ON p.animal_id = a.id
                 LEFT JOIN Refugios r ON p.refugio_id = r.id
@@ -67,6 +71,7 @@ router.get('/', async (req, res) => {
         let query = `
             SELECT p.*, 
                    a.nombre AS nombre_animal, 
+                   a.especie AS especie_animal,
                    a.foto AS foto_animal,
                    ad.nombre_completo AS nombre_adoptante, 
                    ad.rut AS rut_adoptante,
@@ -97,6 +102,12 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        console.log("Petición GET /postulaciones/:id ->", { id, usuario: req.usuario });
+
+        if (isNaN(id)) {
+            return res.status(400).json({ error: "El ID de la postulación debe ser un número válido" });
+        }
+
         let query = "";
         let params = [];
 

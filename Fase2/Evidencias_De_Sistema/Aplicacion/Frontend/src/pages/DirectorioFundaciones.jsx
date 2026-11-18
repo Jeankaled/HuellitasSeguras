@@ -83,7 +83,13 @@ export default function DirectorioFundaciones() {
           <div className="flex items-center gap-2 md:gap-3">
             {/* Botón Mis Postulaciones (Ícono en móvil, texto en PC) */}
             <button
-              onClick={() => navigate('/mis-postulaciones/1')}
+              onClick={() => {
+                if (postulaciones.length > 0) {
+                  navigate(`/mis-postulaciones/${postulaciones[0].id}`);
+                } else {
+                  alert("Aún no has enviado ninguna postulación.");
+                }
+              }}
               className="flex items-center gap-1.5 md:gap-2 p-2 md:px-4 md:py-2.5 rounded-xl md:rounded-2xl bg-purple-100 text-purple-700 font-bold text-xs hover:bg-purple-200 transition shadow-sm active:scale-95 relative"
               title="Mis Postulaciones"
             >

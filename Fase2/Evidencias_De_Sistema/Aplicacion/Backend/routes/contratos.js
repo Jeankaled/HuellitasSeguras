@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// GET: Obtener todos los contratos del refugio logueado (Con nombres para el frontend)
 router.get('/', async (req, res) => {
     try {
         const { refugio_id } = req.usuario; // Extraído de forma segura desde el token JWT
@@ -30,7 +29,6 @@ router.get('/:id', async (req, res) => {
         const { id } = req.params;
         const { refugio_id } = req.usuario;
         
-        // Agregamos rut, telefono, email y datos de la mascota para alimentar la vista React
         const query = `
             SELECT 
                 c.*, 
@@ -50,7 +48,6 @@ router.get('/:id', async (req, res) => {
         
         if (resultado.rowCount === 0) return res.status(404).json({ error: "Contrato no encontrado o sin permisos" });
         
-        // Enviamos el objeto directamente para que el frontend lo parsee sin problemas
         res.json(resultado.rows[0]);
     } catch (error) {
         console.error(error);
@@ -58,7 +55,6 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST: Crear contrato base (El refugio_id se toma del token, no del body)
 router.post('/', async (req, res) => {
     try {
         const { refugio_id } = req.usuario; 
@@ -76,14 +72,12 @@ router.post('/', async (req, res) => {
     }
 });
 
-// PUT: Actualizar/Firmar contrato
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { refugio_id } = req.usuario;
         const { pdf_url, codigo_otp_firma, ip_firma, estado_firma } = req.body;
         
-        // El WHERE exige el refugio_id para que un usuario no pueda alterar contratos de otros
         const resultado = await db.query(
             `UPDATE Contratos_Adopcion 
              SET pdf_url = $1, codigo_otp_firma = $2, ip_firma = $3, estado_firma = $4, estampa_tiempo = CURRENT_TIMESTAMP 
@@ -99,7 +93,6 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// DELETE: Eliminar contrato
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
