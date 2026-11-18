@@ -15,6 +15,7 @@ import CatalogoMascotasRefugio from './pages/CatalogoMascotasRefugio';
 import FormularioAdopcion from './pages/FormularioAdopcion';
 // Se asume que este es el componente que creamos recientemente
 import SeguimientoPostulacion from './pages/SeguimientoPostulacion';
+import RecuperarPassword from './pages/RecuperarPassword';
 
 // Función auxiliar para determinar la ruta por defecto según el rol del usuario
 const obtenerRutaPorRol = () => {
@@ -121,7 +122,9 @@ function App() {
           path="*" 
           element={<Navigate to={token ? rutaPorDefecto : "/"} replace />} 
         />
+        <Route path="/recuperar-password" element={<RecuperarPassword />} />
       </Routes>
+      
     </Router>
   );
 }

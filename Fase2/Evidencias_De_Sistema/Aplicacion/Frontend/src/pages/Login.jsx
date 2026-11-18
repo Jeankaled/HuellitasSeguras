@@ -86,34 +86,26 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-sky-100 p-4 relative overflow-hidden">
       
-      {/* 📱 AJUSTE: Botón Volver más pequeño en celular (top-4, p-2, text-sm) y grande en PC (md:top-6, md:px-5) */}
+      {/* 📱 AJUSTE: Botón Volver unificado y responsivo */}
       <button 
         onClick={() => navigate('/')} 
-        className="group absolute top-4 left-4 md:top-6 md:left-6 z-20 flex items-center gap-1 md:gap-2 bg-white/90 backdrop-blur-md px-3 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl shadow-sm hover:shadow-lg border-2 border-white hover:border-pink-200 transition-all duration-300 text-sky-700 font-extrabold text-xs md:text-base hover:text-pink-500 hover:-translate-y-1"
-      >
-        
-      </button>
-      {/* Botón Volver a la Página Principal (Estilizado) */}
-      <button 
-        onClick={() => navigate('/')} 
-        className="group absolute top-6 left-6 z-20 flex items-center gap-2 bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-sm hover:shadow-lg border-2 border-white hover:border-pink-200 transition-all duration-300 text-sky-700 font-extrabold hover:text-pink-500 hover:-translate-y-1"
+        className="group absolute top-4 left-4 md:top-6 md:left-6 z-20 flex items-center gap-1.5 md:gap-2 bg-white/90 backdrop-blur-md px-3 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl shadow-sm hover:shadow-lg border-2 border-white hover:border-pink-200 transition-all duration-300 text-sky-700 font-extrabold text-xs md:text-base hover:text-pink-500 hover:-translate-y-1"
       >
         <svg 
           xmlns="http://www.w3.org/2000/svg" 
-          width="20" 
-          height="20" 
           viewBox="0 0 24 24" 
           fill="none" 
           stroke="currentColor" 
           strokeWidth="2.5" 
           strokeLinecap="round" 
           strokeLinejoin="round"
-          className="transition-transform duration-300 group-hover:-translate-x-1"
+          className="w-4 h-4 md:w-5 md:h-5 transition-transform duration-300 group-hover:-translate-x-1"
         >
           <path d="m12 19-7-7 7-7"/>
           <path d="M19 12H5"/>
         </svg>
-        Volver a la Página Principal
+        <span className="hidden sm:inline">Volver a la Página Principal</span>
+        <span className="sm:hidden">Volver</span>
       </button>
 
       {/* Elementos decorativos de fondo */}
@@ -121,14 +113,14 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
       <div className="absolute bottom-12 right-12 text-6xl opacity-20 hidden md:block">🧶</div>
       <div className="absolute top-24 right-24 text-5xl opacity-20 hidden md:block">🐾</div>
 
-      <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md relative z-10 border-4 border-white">
+      <div className="bg-white p-6 sm:p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md relative z-10 border-4 border-white">
         
         {/* Detalle superior */}
         <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-slate-300 via-slate-100 to-slate-300 shadow-[0_2px_10px_rgba(203,213,225,0.8)] rounded-t-[2.5rem]"></div>
 
         {/* Encabezado */}
         <div className="text-center mb-6 mt-2">
-          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-pink-300 mb-2 drop-shadow-sm">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-pink-300 mb-2 drop-shadow-sm">
             ¡Hola de nuevo! 🐾
           </h1>
           <p className="text-sky-700 font-medium text-sm">
@@ -160,7 +152,7 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="correo@ejemplo.com"
-              className="w-full px-4 py-3 border-2 border-sky-100 rounded-2xl focus:outline-none focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all bg-sky-50 text-slate-700 font-medium placeholder:text-sky-300"
+              className="w-full px-4 py-3 border-2 border-sky-100 rounded-2xl focus:outline-none focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all bg-sky-50 text-slate-700 font-medium placeholder:text-sky-300 text-sm sm:text-base"
               required
               disabled={loading}
             />
@@ -176,14 +168,14 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 border-2 border-sky-100 rounded-2xl focus:outline-none focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all bg-sky-50 text-slate-700 font-medium placeholder:text-sky-300"
+                className="w-full px-4 py-3 border-2 border-sky-100 rounded-2xl focus:outline-none focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all bg-sky-50 text-slate-700 font-medium placeholder:text-sky-300 text-sm sm:text-base"
                 required
                 disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-sky-400 hover:text-pink-400 transition-colors focus:outline-none"
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-sky-400 hover:text-pink-400 transition-colors focus:outline-none p-1"
               >
                 {showPassword ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
@@ -192,12 +184,25 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
                 )}
               </button>
             </div>
+            
+            {/* 👈 NUEVO: Link de Olvidé mi Contraseña */}
+            <div className="flex justify-end mt-2 mr-1">
+              <button
+                type="button"
+                onClick={() => navigate('/recuperar-password')}
+                disabled={loading}
+                className="text-xs sm:text-sm text-sky-500 hover:text-pink-500 font-bold transition-colors cursor-pointer"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className={`group relative w-full text-white font-extrabold text-lg py-4 px-4 rounded-2xl transition-all duration-300 mt-4 overflow-hidden ${
+            className={`group relative w-full text-white font-extrabold text-base sm:text-lg py-3.5 sm:py-4 px-4 rounded-2xl transition-all duration-300 mt-2 overflow-hidden ${
               loading
                 ? 'bg-slate-400 cursor-not-allowed'
                 : 'bg-pink-300 hover:bg-pink-400 shadow-[0_8px_20px_-6px_rgba(244,114,182,0.6)] hover:shadow-[0_12px_25px_-6px_rgba(244,114,182,0.8)] hover:-translate-y-1'
@@ -211,14 +216,14 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
 
         {/* Botón para cambiar a la pantalla de Registro */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-sky-700 font-medium mb-2">
+          <p className="text-xs sm:text-sm text-sky-700 font-medium mb-2">
             ¿Aún no tienes una cuenta?
           </p>
           <button
             type="button"
             onClick={irAlRegistro}
             disabled={loading}
-            className="text-pink-400 hover:text-pink-500 font-extrabold transition-colors underline decoration-2 underline-offset-4 cursor-pointer"
+            className="text-pink-400 hover:text-pink-500 font-extrabold text-sm sm:text-base transition-colors underline decoration-2 underline-offset-4 cursor-pointer"
           >
             Crear una cuenta nueva ✨
           </button>
