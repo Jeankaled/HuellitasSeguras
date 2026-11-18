@@ -33,6 +33,13 @@ export default function CatalogoMascotasRefugio() {
           }
         });
 
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('usuario');
+          navigate('/login');
+          return;
+        }
+
         if (res.ok) {
           const data = await res.json();
           // Tu backend ya te entrega todo empaquetado y listo para usar
