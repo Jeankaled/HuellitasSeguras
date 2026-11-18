@@ -501,157 +501,159 @@ if (loading) return <div className="min-h-screen flex items-center justify-cente
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-hidden font-sans text-slate-700">
       
-      {/* SIDEBAR */}
-      <aside className="w-20 bg-white flex flex-col items-center py-8 gap-8 border-r border-slate-200 shadow-sm z-10">
-        <div 
-          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md transition" 
-          style={{ backgroundColor: tema.principal }}
-        >
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
-        </div>
-        <nav className="flex flex-col gap-6 text-slate-400 h-full">
-          <button 
-            onClick={() => setVistaActiva('bandeja')}
-            className={`p-3 rounded-2xl transition shadow-sm ${vistaActiva === 'bandeja' ? 'text-white' : 'hover:bg-slate-100'}`}
-            style={{ backgroundColor: vistaActiva === 'bandeja' ? tema.secundario : 'transparent' }}
-            title="Bandeja de Adoptantes"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-          </button>
-          
-          <button 
-            onClick={() => setVistaActiva('catalogo')}
-            className={`p-3 rounded-2xl transition shadow-sm ${vistaActiva === 'catalogo' ? 'text-white' : 'hover:bg-slate-100'}`}
-            style={{ backgroundColor: vistaActiva === 'catalogo' ? tema.secundario : 'transparent' }}
-            title="Catálogo de Mascotas"
-          >
-            <Cat className="w-6 h-6" />
-          </button>
+      {/* SIDEBAR / BOTTOM NAV EN MÓVIL */}
+<aside className="fixed md:static bottom-0 w-full md:w-20 h-16 md:h-screen bg-white flex md:flex-col items-center justify-around md:justify-start py-2 md:py-8 md:gap-8 border-t md:border-t-0 md:border-r border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-sm z-50">
+  
+  {/* Logo / Icono de Fundación (Oculto en móvil para ahorrar espacio) */}
+  <div 
+    className="hidden md:flex w-12 h-12 rounded-2xl items-center justify-center text-white shadow-md transition" 
+    style={{ backgroundColor: tema.principal }}
+  >
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+  </div>
 
-          <button 
-            onClick={() => navigate('/directorio')}
-            className="p-3 bg-white rounded-2xl transition shadow-sm border border-slate-100 hover:bg-slate-100 hover:text-slate-600 hover:scale-105"
-            title="Ir a Directorio"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-            </svg>
-          </button>
+  <nav className="flex md:flex-col flex-row items-center justify-around md:justify-start w-full h-full gap-2 md:gap-6 text-slate-400">
+    <button 
+      onClick={() => setVistaActiva('bandeja')}
+      className={`p-3 rounded-2xl transition shadow-sm ${vistaActiva === 'bandeja' ? 'text-white' : 'hover:bg-slate-100'}`}
+      style={{ backgroundColor: vistaActiva === 'bandeja' ? tema.secundario : 'transparent' }}
+      title="Bandeja de Adoptantes"
+    >
+      <svg className="w-6 h-6 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+    </button>
+    
+    <button 
+      onClick={() => setVistaActiva('catalogo')}
+      className={`p-3 rounded-2xl transition shadow-sm ${vistaActiva === 'catalogo' ? 'text-white' : 'hover:bg-slate-100'}`}
+      style={{ backgroundColor: vistaActiva === 'catalogo' ? tema.secundario : 'transparent' }}
+      title="Catálogo de Mascotas"
+    >
+      <Cat className="w-6 h-6" /> {/* Asegúrate de que el icono Cat esté importado */}
+    </button>
 
-          <button 
-            onClick={() => navigate('/ajustes-perfil')}
-            className="p-3 rounded-2xl transition shadow-sm text-slate-400 hover:bg-slate-100 hover:scale-105"
-            title="Ajustes de la Fundación"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
-          </button>
-          
-          <div className="mt-auto pt-8">
-            <button 
-              onClick={onLogout}
-              title="Cerrar sesión" 
-              className="p-3 bg-white text-red-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition border border-red-100 shadow-sm"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-            </button>
-          </div>
-        </nav>
-      </aside>
+    <button 
+      onClick={() => navigate('/directorio')}
+      className="p-3 bg-white rounded-2xl transition shadow-sm border border-slate-100 hover:bg-slate-100 hover:text-slate-600 hover:scale-105"
+      title="Ir a Directorio"
+    >
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+      </svg>
+    </button>
+
+    <button 
+      onClick={() => navigate('/ajustes-perfil')}
+      className="p-3 rounded-2xl transition shadow-sm text-slate-400 hover:bg-slate-100 hover:scale-105"
+      title="Ajustes de la Fundación"
+    >
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+      </svg>
+    </button>
+    
+    <div className="md:mt-auto md:pt-8 flex">
+      <button 
+        onClick={onLogout}
+        title="Cerrar sesión" 
+        className="p-3 bg-white text-red-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition border border-red-100 shadow-sm"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+      </button>
+    </div>
+  </nav>
+</aside>
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="flex-1 flex flex-col p-8 lg:px-12 relative overflow-y-auto">
-        
-        <header className="flex justify-between items-center mb-10">
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-              {nombreOrganizacion} <span className="text-2xl">✨</span>
-            </h1>
-            <p className="text-slate-500 font-medium mt-1">
-              {vistaActiva === 'bandeja' ? 'Revisa las solicitudes y une familias.' : 'Administra y visualiza los animales registrados.'}
-              <span className="ml-1 font-bold" style={{ color: tema.principal }}>
-                ({animales.length} mascotas registradas)
-              </span>
-            </p>
-          </div>
+<main className="flex-1 flex flex-col p-4 md:p-8 lg:px-12 relative overflow-y-auto pb-24 md:pb-8">
+  
+  <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-10">
+    <div>
+      <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 flex items-center gap-2">
+        {nombreOrganizacion} <span className="text-xl md:text-2xl">✨</span>
+      </h1>
+      <p className="text-sm md:text-base text-slate-500 font-medium mt-1">
+        {vistaActiva === 'bandeja' ? 'Revisa las solicitudes y une familias.' : 'Administra y visualiza los animales registrados.'}
+        <span className="ml-1 font-bold block sm:inline mt-1 sm:mt-0" style={{ color: tema.principal }}>
+          ({animales.length} mascotas registradas)
+        </span>
+      </p>
+    </div>
+    
+    {vistaActiva === 'catalogo' && (
+      <button 
+        onClick={abrirModalCrear}
+        className="w-full sm:w-auto px-6 py-3.5 rounded-2xl text-white font-extrabold shadow-lg transition flex items-center justify-center gap-2 hover:opacity-90 transform hover:-translate-y-0.5"
+        style={{ backgroundColor: tema.principal, boxShadow: `0 8px 20px -4px ${tema.principal}60` }}
+      >
+        <Plus className="w-5 h-5" /> + Registrar Mascota
+      </button>
+    )}
+  </header>
+
+  {vistaActiva === 'bandeja' && (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 flex-1 items-start">
+      {/* Sección de la Bandeja */}
+      <section className="lg:col-span-4 flex flex-col gap-4">
+        <div className="flex justify-between items-center px-1 mb-2">
+          <h2 className="font-bold text-slate-800 flex items-center gap-2">Bandeja de Entrada 💌</h2>
+          <span className="text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-sm" style={{ backgroundColor: tema.secundario }}>
+            {adoptantes.length} Solicitudes
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-3 overflow-y-auto pr-1 max-h-[60vh] md:max-h-[70vh] custom-scrollbar">
           
-          {vistaActiva === 'catalogo' && (
-            <button 
-              onClick={abrirModalCrear}
-              className="px-6 py-3.5 rounded-2xl text-white font-extrabold shadow-lg transition flex items-center gap-2 hover:opacity-90 transform hover:-translate-y-0.5"
-              style={{ backgroundColor: tema.principal, boxShadow: `0 8px 20px -4px ${tema.principal}60` }}
-            >
-              <Plus className="w-5 h-5" /> + Registrar Mascota
-            </button>
-          )}
-        </header>
+          {adoptantes.map((solicitud) => {
+            const reportesAdoptante = obtenerReportesAdoptante(solicitud);
+            const cantidadReportes = reportesAdoptante.length;
 
-        {vistaActiva === 'bandeja' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 items-start">
-            {/* Sección de la Bandeja */}
-            <section className="lg:col-span-4 flex flex-col gap-4">
-              <div className="flex justify-between items-center px-1 mb-2">
-                <h2 className="font-bold text-slate-800 flex items-center gap-2">Bandeja de Entrada 💌</h2>
-                <span className="text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-sm" style={{ backgroundColor: tema.secundario }}>
-                  {adoptantes.length} Solicitudes
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-4 overflow-y-auto pr-2 max-h-[70vh] custom-scrollbar">
-                
-                {adoptantes.map((solicitud) => {
-                  const reportesAdoptante = obtenerReportesAdoptante(solicitud);
-                  const cantidadReportes = reportesAdoptante.length;
-
-                  return (
-                    <div
-                      key={solicitud.id}
-                      onClick={() => setSeleccionado(solicitud)}
-                      style={{
-                        borderColor: seleccionado?.id === solicitud.id ? tema.principal : (cantidadReportes > 0 ? '#fca5a5' : 'transparent'),
-                        boxShadow: seleccionado?.id === solicitud.id ? `0 4px 15px -3px ${tema.principal}40` : ''
-                      }}
-                      className={`p-5 rounded-4xl border-2 cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-md ${
-                        seleccionado?.id === solicitud.id ? 'transform scale-[1.02]' : ''
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="font-extrabold text-slate-800 text-lg flex items-center gap-2 flex-wrap">
-                            {solicitud.nombre_adoptante || 'Sin Nombre'}
-                            
-                            {/* BOTÓN DE REPORTES (Solo aparece si hay > 0) */}
-                            {cantidadReportes > 0 && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setReportesDelAdoptante(reportesAdoptante);
-                                  setModalReportesAbierto(true);
-                                }}
-                                className="bg-red-100 hover:bg-red-200 transition text-red-700 text-[11px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer shadow-sm"
-                                title="Ver detalles de los reportes"
-                              >
-                                <AlertTriangle className="w-3 h-3" /> {cantidadReportes} Reporte{cantidadReportes !== 1 ? 's' : ''}
-                              </button>
-                            )}
-                          </h3>
-                        </div>
-                        <span className="bg-yellow-100 text-yellow-600 text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wide">
-                          {solicitud.estado_postulacion || 'Pendiente'}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium flex items-center gap-1 mb-4" style={{ color: tema.principal }}>
-                        ♡ Para adoptar a: <span className="text-slate-600">{solicitud.nombre_animal || 'Mascota'}</span>
-                      </p>
-                      <div className="flex justify-between items-center text-xs text-slate-400 font-medium">
-                        <span className="flex items-center gap-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                          </svg> 
-                          {solicitud.fecha_postulacion ? new Date(solicitud.fecha_postulacion).toLocaleDateString() : 'Reciente'}
-                        </span>
+            return (
+              <div
+                key={solicitud.id}
+                onClick={() => setSeleccionado(solicitud)}
+                style={{
+                  borderColor: seleccionado?.id === solicitud.id ? tema.principal : (cantidadReportes > 0 ? '#fca5a5' : 'transparent'),
+                  boxShadow: seleccionado?.id === solicitud.id ? `0 4px 15px -3px ${tema.principal}40` : ''
+                }}
+                className={`p-4 md:p-5 rounded-3xl md:rounded-4xl border-2 cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-md ${
+                  seleccionado?.id === solicitud.id ? 'transform md:scale-[1.02] bg-slate-50' : ''
+                }`}
+              >
+                <div className="flex justify-between items-start mb-2 md:mb-3">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800 text-base md:text-lg flex items-center gap-2 flex-wrap">
+                      {solicitud.nombre_adoptante || 'Sin Nombre'}
+                      
+                      {cantidadReportes > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReportesDelAdoptante(reportesAdoptante);
+                            setModalReportesAbierto(true);
+                          }}
+                          className="bg-red-100 hover:bg-red-200 transition text-red-700 text-[10px] md:text-[11px] font-extrabold px-2 py-1 md:px-2.5 md:py-1 rounded-full flex items-center gap-1 cursor-pointer shadow-sm mt-1 sm:mt-0"
+                          title="Ver detalles de los reportes"
+                        >
+                          <AlertTriangle className="w-3 h-3" /> {cantidadReportes} Reporte{cantidadReportes !== 1 ? 's' : ''}
+                        </button>
+                      )}
+                    </h3>
+                  </div>
+                  <span className="bg-yellow-100 text-yellow-600 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide">
+                    {solicitud.estado_postulacion || 'Pendiente'}
+                  </span>
+                </div>
+                <p className="text-xs md:text-sm font-medium flex items-center gap-1 mb-3 md:mb-4" style={{ color: tema.principal }}>
+                  ♡ Para adoptar a: <span className="text-slate-600 truncate max-w-[120px]">{solicitud.nombre_animal || 'Mascota'}</span>
+                </p>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-[11px] md:text-xs text-slate-400 font-medium">
+                  <span className="flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg> 
+                    {solicitud.fecha_postulacion ? new Date(solicitud.fecha_postulacion).toLocaleDateString() : 'Reciente'}
+                  </span>
                         
                         <button 
                           onClick={(e) => {
