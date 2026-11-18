@@ -62,13 +62,13 @@ cd "fase2/Evidencias_De_Sistema/Aplicacion/Backend"
 ```
 # Configuración vital: Crea un archivo llamado .env en esta carpeta y pega exactamente las siguientes variables de entorno(*ojo*: Solo si no se clona la caprteta .env):
 ```bash
-DB_USER=admin_huellita
-DB_PASSWORD=password123
+DB_USER=usuario
+DB_PASSWORD=passworSeguro
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=huellita_segura_db
 PORT=3000
-JWT_SECRET=super_secreto_huellitas_2026
+JWT_SECRET=PasswordSeguro
 ```
 # Instala todas las dependencias del servidor (Express, Bcrypt, JWT, etc.):
 ```bash

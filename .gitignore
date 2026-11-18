@@ -1,0 +1,6 @@
+﻿node_modules/
+.env
+Fase2/Evidencias_De_Sistema/Aplicacion/Backend/.env
+Fase2/Evidencias_De_Sistema/Aplicacion/Frontend/.env
+Fase2/Evidencias_De_Sistema/Aplicacion/Backend/uploads/*
+!Fase2/Evidencias_De_Sistema/Aplicacion/Backend/uploads/.gitkeep

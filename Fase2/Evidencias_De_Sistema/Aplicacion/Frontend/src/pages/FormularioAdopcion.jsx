@@ -90,7 +90,7 @@ export default function FormularioAdopcion() {
 
   return (
     <div 
-      className="min-h-screen p-6 md:p-12 text-slate-700 font-sans transition-colors duration-500"
+      className="min-h-screen p-4 sm:p-6 md:p-12 text-slate-700 font-sans transition-colors duration-500"
       style={{ background: `linear-gradient(135deg, ${colorSecundario}40, ${colorPrimario}25)` }}
     >
       <div className="max-w-3xl mx-auto">
@@ -98,50 +98,52 @@ export default function FormularioAdopcion() {
         {/* Botón Volver estilizado */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/90 backdrop-blur-md shadow-sm text-slate-600 hover:text-pink-600 transition mb-6 font-bold text-xs border border-white/50 active:scale-95"
+          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl md:rounded-2xl bg-white/90 backdrop-blur-md shadow-sm text-slate-600 hover:text-pink-600 transition mb-4 md:mb-6 font-bold text-[11px] md:text-xs border border-white/50 active:scale-95 w-fit"
         >
-          <ArrowLeft className="w-4 h-4" /> Volver al catálogo
+          <ArrowLeft className="w-3 h-3 md:w-4 md:h-4" /> 
+          <span className="hidden sm:inline">Volver al catálogo</span>
+          <span className="sm:hidden">Volver</span>
         </button>
 
         {/* Tarjeta Contenedora Principal */}
-        <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-white p-8 md:p-12 relative">
+        <div className="bg-white/95 backdrop-blur-xl rounded-[2rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden border border-white p-5 sm:p-8 md:p-12 relative">
           
           {/* Círculo decorativo superior dinámico */}
           <div 
-            className="absolute top-0 left-0 right-0 h-3 transition-all duration-500"
+            className="absolute top-0 left-0 right-0 h-2 md:h-3 transition-all duration-500"
             style={{ background: `linear-gradient(90deg, ${colorPrimario}, ${colorSecundario})` }}
           ></div>
 
           {/* Encabezado */}
-          <div className="border-b border-slate-100 pb-6 mb-8 mt-2">
+          <div className="border-b border-slate-100 pb-5 md:pb-6 mb-6 md:mb-8 mt-2">
             <div 
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-extrabold text-xs mb-3 shadow-xs"
+              className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-1 rounded-full font-extrabold text-[10px] md:text-xs mb-3 shadow-xs"
               style={{ backgroundColor: `${colorSecundario}80`, color: colorPrimario }}
             >
-              <Sparkles className="w-3.5 h-3.5" /> Proceso de Adopción Responsable
+              <Sparkles className="w-3 h-3 md:w-3.5 md:h-3.5" /> Proceso de Adopción Responsable
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">
               Postulando para adoptar a <span style={{ color: colorPrimario }}>{nombreMascota}</span> 🐶🐱
             </h1>
-            <p className="text-sm text-slate-500 font-medium mt-2">
+            <p className="text-xs md:text-sm text-slate-500 font-medium mt-2">
               Completa cada sección con cuidado. Estos datos son los que evaluará la fundación en su panel de control para asegurar el hogar perfecto.
             </p>
           </div>
 
           {/* Formulario */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             
             {/* Tipo de Vivienda */}
-            <div className="bg-slate-50/80 p-5 rounded-3xl border border-slate-100 hover:border-pink-200 transition">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
-                <Home className="w-4 h-4" style={{ color: colorPrimario }} /> 1. Tipo de Vivienda
+            <div className="bg-slate-50/80 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 hover:border-pink-200 transition">
+              <label className="block text-[10px] md:text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-1.5 md:gap-2">
+                <Home className="w-3.5 h-3.5 md:w-4 md:h-4" style={{ color: colorPrimario }} /> 1. Tipo de Vivienda
               </label>
               <select
                 name="tipo_vivienda"
                 value={formData.tipo_vivienda}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-sm font-medium transition"
+                className="w-full px-3 md:px-4 py-3 md:py-3.5 rounded-xl md:rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-xs md:text-sm font-medium transition"
                 style={{ '--tw-ring-color': colorPrimario }}
               >
                 <option value="">Selecciona tu tipo de vivienda...</option>
@@ -153,9 +155,9 @@ export default function FormularioAdopcion() {
             </div>
 
             {/* Composición del Hogar */}
-            <div className="bg-slate-50/80 p-5 rounded-3xl border border-slate-100 hover:border-pink-200 transition">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
-                <Users className="w-4 h-4" style={{ color: colorPrimario }} /> 2. Composición del Hogar
+            <div className="bg-slate-50/80 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 hover:border-pink-200 transition">
+              <label className="block text-[10px] md:text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-1.5 md:gap-2">
+                <Users className="w-3.5 h-3.5 md:w-4 md:h-4" style={{ color: colorPrimario }} /> 2. Composición del Hogar
               </label>
               <input
                 type="text"
@@ -164,15 +166,15 @@ export default function FormularioAdopcion() {
                 value={formData.composicion_hogar}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-sm font-medium transition"
+                className="w-full px-3 md:px-4 py-3 md:py-3.5 rounded-xl md:rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-xs md:text-sm font-medium transition"
                 style={{ '--tw-ring-color': colorPrimario }}
               />
             </div>
 
             {/* Otras Mascotas */}
-            <div className="bg-slate-50/80 p-5 rounded-3xl border border-slate-100 hover:border-pink-200 transition">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
-                <Heart className="w-4 h-4" style={{ color: colorPrimario }} /> 3. Otras Mascotas en el Hogar
+            <div className="bg-slate-50/80 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 hover:border-pink-200 transition">
+              <label className="block text-[10px] md:text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-1.5 md:gap-2">
+                <Heart className="w-3.5 h-3.5 md:w-4 md:h-4" style={{ color: colorPrimario }} /> 3. Otras Mascotas
               </label>
               <input
                 type="text"
@@ -181,15 +183,15 @@ export default function FormularioAdopcion() {
                 value={formData.otras_mascotas}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-sm font-medium transition"
+                className="w-full px-3 md:px-4 py-3 md:py-3.5 rounded-xl md:rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-xs md:text-sm font-medium transition"
                 style={{ '--tw-ring-color': colorPrimario }}
               />
             </div>
 
             {/* Tiempo a Solas Estimado */}
-            <div className="bg-slate-50/80 p-5 rounded-3xl border border-slate-100 hover:border-pink-200 transition">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
-                <Clock className="w-4 h-4" style={{ color: colorPrimario }} /> 4. Tiempo a solas estimado de la mascota
+            <div className="bg-slate-50/80 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 hover:border-pink-200 transition">
+              <label className="block text-[10px] md:text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-1.5 md:gap-2">
+                <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" style={{ color: colorPrimario }} /> 4. Tiempo a solas estimado
               </label>
               <input
                 type="text"
@@ -198,58 +200,59 @@ export default function FormularioAdopcion() {
                 value={formData.tiempo_solas}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-sm font-medium transition"
+                className="w-full px-3 md:px-4 py-3 md:py-3.5 rounded-xl md:rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-xs md:text-sm font-medium transition"
                 style={{ '--tw-ring-color': colorPrimario }}
               />
             </div>
 
             {/* Motivación para Adoptar */}
-            <div className="bg-slate-50/80 p-5 rounded-3xl border border-slate-100 hover:border-pink-200 transition">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
-                <FileText className="w-4 h-4" style={{ color: colorPrimario }} /> 5. Motivación para adoptar
+            <div className="bg-slate-50/80 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 hover:border-pink-200 transition">
+              <label className="block text-[10px] md:text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-1.5 md:gap-2">
+                <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" style={{ color: colorPrimario }} /> 5. Motivación
               </label>
               <textarea
                 name="motivacion"
                 rows="4"
-                placeholder="Cuéntanos por qué deseas integrar a esta mascota a tu vida y qué espacio le ofrecerás..."
+                placeholder="Cuéntanos por qué deseas integrar a esta mascota a tu vida..."
                 value={formData.motivacion}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-sm font-medium transition resize-none"
+                className="w-full px-3 md:px-4 py-3 md:py-3.5 rounded-xl md:rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 bg-white text-slate-800 text-xs md:text-sm font-medium transition resize-none"
                 style={{ '--tw-ring-color': colorPrimario }}
               ></textarea>
             </div>
 
-            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-sm">
-    <label className="flex items-start gap-3 cursor-pointer">
-      <input type="checkbox" required className="mt-1 w-4 h-4 rounded text-pink-500 focus:ring-pink-500" />
-      <span className="text-slate-600">
-        Declaro que los datos proporcionados son fidedignos y autorizo su tratamiento conforme a la <strong>Ley 19.799 sobre Documentos Electrónicos y Firma Electrónica</strong>.
-      </span>
-    </label>
-    <label className="flex items-start gap-3 cursor-pointer">
-      <input type="checkbox" required className="mt-1 w-4 h-4 rounded text-pink-500 focus:ring-pink-500" />
-      <span className="text-slate-600">
-        Me comprometo a cumplir con las normativas de tenencia responsable de mascotas exigidas por la <strong>Ley 21.020 (Ley Cholito)</strong> y los protocolos de la fundación.
-      </span>
-    </label>
-  </div>
+            {/* Términos Legales */}
+            <div className="space-y-3 p-4 bg-slate-50 rounded-xl md:rounded-2xl border border-slate-200 text-[11px] md:text-sm">
+              <label className="flex items-start gap-2.5 md:gap-3 cursor-pointer group">
+                <input type="checkbox" required className="mt-0.5 md:mt-1 w-4 h-4 rounded text-pink-500 focus:ring-pink-500 shrink-0" />
+                <span className="text-slate-600 group-hover:text-slate-800 transition-colors">
+                  Declaro que los datos proporcionados son fidedignos y autorizo su tratamiento conforme a la <strong>Ley 19.799 sobre Documentos Electrónicos y Firma Electrónica</strong>.
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 md:gap-3 cursor-pointer group">
+                <input type="checkbox" required className="mt-0.5 md:mt-1 w-4 h-4 rounded text-pink-500 focus:ring-pink-500 shrink-0" />
+                <span className="text-slate-600 group-hover:text-slate-800 transition-colors">
+                  Me comprometo a cumplir con las normativas de tenencia responsable de mascotas exigidas por la <strong>Ley 21.020 (Ley Cholito)</strong> y los protocolos de la fundación.
+                </span>
+              </label>
+            </div>
 
-            {/* Botón Enviar con los colores de la fundación */}
+            {/* Botón Enviar */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 text-white font-extrabold rounded-2xl shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 mt-8 text-base cursor-pointer"
+              className="w-full py-3.5 md:py-4 text-white font-extrabold rounded-xl md:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform md:hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 mt-6 md:mt-8 text-sm md:text-base cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
               style={{ background: `linear-gradient(135deg, ${colorPrimario}, #34D399)` }}
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4 md:w-5 md:h-5" />
               {loading ? 'Enviando postulación...' : `¡Enviar Postulación para ${nombreMascota}!`}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-xs text-slate-400 flex items-center justify-center gap-1">
-              <ShieldCheck className="w-4 h-4 text-emerald-500" /> Tus datos están seguros y serán enviados directamente al refugio.
+          <div className="mt-5 md:mt-6 text-center">
+            <p className="text-[10px] md:text-xs text-slate-400 flex items-center justify-center gap-1 md:gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-500" /> Tus datos están seguros y serán enviados directamente al refugio.
             </p>
           </div>
 
