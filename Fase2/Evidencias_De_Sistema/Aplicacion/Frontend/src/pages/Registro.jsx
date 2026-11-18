@@ -188,6 +188,9 @@ export default function Registro() {
 
         if (!respuesta.ok) throw new Error(data.error || 'Hubo un error al registrar el adoptante');
         
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+
         if (data.token) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('usuario', JSON.stringify(data.usuario || adoptanteData));
