@@ -32,6 +32,11 @@ export default function SeguimientoPostulacion() {
 
   useEffect(() => {
     const cargarPostulacion = async () => {
+      if (!id || isNaN(Number(id))) {
+        setError("ID de postulación no válido");
+        setCargando(false);
+        return;
+      }
       try {
         const token = localStorage.getItem('token');
         // Usamos la variable de entorno que apunta directo al backend (ej: http://localhost:3000)
