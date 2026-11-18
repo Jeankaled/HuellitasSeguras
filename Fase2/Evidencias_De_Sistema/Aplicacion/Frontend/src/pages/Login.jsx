@@ -44,6 +44,9 @@ export default function Login({ onNavigateToRegister, onLoginSuccess }) {
 
       setSuccess('¡Inicio de sesión exitoso!');
 
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+
       // Guardamos el token y el usuario devueltos por el backend
       if (datos.token) {
         localStorage.setItem('token', datos.token);

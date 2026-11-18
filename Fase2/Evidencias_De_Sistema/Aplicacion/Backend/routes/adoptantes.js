@@ -3,11 +3,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 const verificarToken = require('../middlewares/verificarToken');
 const { validarYFormatearRut } = require('../utils/validarRut');
-const { validarEmailUnico } = require('../utils/validarEmail');
-
-
 
 router.get('/', verificarToken, async (req, res) => {
     try {
@@ -26,6 +25,34 @@ router.get('/', verificarToken, async (req, res) => {
         res.status(500).json({ error: "Error al consultar adoptantes filtrados" });
     }
 });
+
+router.patch('/preferencias', verificarToken, async (req, res) => {
+    try {
+        const adoptante_id = req.usuario.id;
+        const { preferencia_mascota } = req.body;
+
+        const resultado = await db.query(
+            `UPDATE Adoptantes 
+             SET preferencia_mascota = $1 
+             WHERE id = $2 
+             RETURNING id, nombre_completo, email, preferencia_mascota`,
+            [preferencia_mascota, adoptante_id]
+        );
+
+        if (resultado.rowCount === 0) {
+            return res.status(404).json({ error: "Adoptante no encontrado" });
+        }
+
+        res.json({
+            mensaje: "Preferencia guardada con éxito",
+            datos: resultado.rows[0]
+        });
+    } catch (error) {
+        console.error("Error al guardar preferencia:", error);
+        res.status(500).json({ error: "Error al actualizar preferencia del adoptante" });
+    }
+});
+
 
 router.get('/:id', verificarToken, async (req, res) => {
     try {
@@ -51,14 +78,7 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: validacionRut.error });
         }
         const rutLimpio = validacionRut.rutLimpio;
-
-        const validacionEmail = await validarEmailUnico(email);
-        if (!validacionEmail.valido) {
-            return res.status(400).json({ error: validacionEmail.error });
-        }
-        const emailLimpio = validacionEmail.emailLimpio;
-
-
+        const emailLimpio = email.trim().toLowerCase();
 
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
@@ -69,15 +89,31 @@ router.post('/', async (req, res) => {
             [rutLimpio, nombre_completo, emailLimpio, password_hash, telefono || null, direccion || null]
         );
 
+        const adoptanteCreado = nuevoAdoptante.rows[0];
+
+        const payloadToken = {
+            id: adoptanteCreado.id,
+            rol: 'Adoptante'
+        };
+
+        const token = jwt.sign(payloadToken, process.env.JWT_SECRET, { expiresIn: '2h' });
+
         res.status(201).json({
             mensaje: "Cuenta de adoptante creada exitosamente",
-            adoptante: nuevoAdoptante.rows[0]
+            token: token,
+            usuario: {
+                id: adoptanteCreado.id,
+                nombre: adoptanteCreado.nombre_completo,
+                email: adoptanteCreado.email,
+                rol: 'Adoptante'
+            },
+            adoptante: adoptanteCreado
         });
 
     } catch (error) {
         console.error("Error en POST adoptantes:", error);
         if (error.code === '23505') {
-            return res.status(400).json({ error: "Este correo electrónico ya está registrado" });
+            return res.status(400).json({ error: "Este RUT o correo electrónico ya está registrado" });
         }
         res.status(500).json({ error: "Hubo un problema al crear la cuenta" });
     }
