@@ -16,6 +16,7 @@ import FormularioAdopcion from './pages/FormularioAdopcion';
 // Se asume que este es el componente que creamos recientemente
 import SeguimientoPostulacion from './pages/SeguimientoPostulacion';
 import RecuperarPassword from './pages/RecuperarPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Función auxiliar para determinar la ruta por defecto según el rol del usuario
 const obtenerRutaPorRol = () => {
@@ -62,6 +63,8 @@ function App() {
       <Toaster position="top-center" /> 
       
       <Routes>
+        <Route path="/recuperar-password" element={<RecuperarPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         {/* 1. Ruta raíz */}
         <Route 
           path="/" 

@@ -4,6 +4,9 @@ const db = require('../db');
 const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcrypt');
+const { validarYFormatearRut } = require('../utils/validarRut');
+const { validarEmailUnico } = require('../utils/validarEmail');
+
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'uploads/'),
@@ -13,10 +16,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-const validarFormatoRUT = (rut) => {
-    const rutRegex = /^[0-9]{1,2}(\.?[0-9]{3}){2}-[0-9Kk]{1}$/;
-    return rutRegex.test(rut);
-};
+
 
 router.get('/', async (req, res) => {
     try {
@@ -34,7 +34,6 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET: Obtener un refugio específico (Para cargar los datos previos en el panel de Ajustes)
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -62,17 +61,24 @@ router.post('/', upload.single('logo'), async (req, res) => {
             return res.status(400).json({ error: "La contraseña es obligatoria" });
         }
 
-        if (!rut || !validarFormatoRUT(rut)) {
-            return res.status(400).json({ error: "Formato de RUT inválido. Por favor, use el formato 12.345.678-9 o 12345678-9." });
+        const validacionRut = validarYFormatearRut(rut);
+        if (!validacionRut.valido) {
+            return res.status(400).json({ error: validacionRut.error });
         }
+        const rutLimpio = validacionRut.rutLimpio;
 
-        const rutLimpio = rut.replace(/\./g, '');
+        const validacionEmail = await validarEmailUnico(email_contacto);
+        if (!validacionEmail.valido) {
+            return res.status(400).json({ error: validacionEmail.error });
+        }
+        const emailLimpio = validacionEmail.emailLimpio;
+
         const logo_url = req.file ? `/uploads/${req.file.filename}` : null;
 
         const nuevoRefugio = await db.query(
             `INSERT INTO Refugios (rut, nombre_organizacion, direccion, email_contacto, telefono, historia, logo_url, color_principal, color_secundario, estado_verificacion) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente') RETURNING id`,
-            [rutLimpio, nombre_organizacion, direccion, email_contacto, telefono, historia, logo_url, color_principal, color_secundario]
+            [rutLimpio, nombre_organizacion, direccion, emailLimpio, telefono, historia, logo_url, color_principal, color_secundario]
         );
 
         const refugio_id = nuevoRefugio.rows[0].id;
@@ -82,7 +88,7 @@ router.post('/', upload.single('logo'), async (req, res) => {
         await db.query(
             `INSERT INTO Usuarios (refugio_id, rut, nombre_completo, email, password_hash, rol) 
              VALUES ($1, $2, $3, $4, $5, 'Administrador')`,
-            [refugio_id, rutLimpio, `Admin ${nombre_organizacion}`, email_contacto, password_hash]
+            [refugio_id, rutLimpio, `Admin ${nombre_organizacion}`, emailLimpio, password_hash]
         );
 
         res.status(201).json({ mensaje: "Refugio y administrador creados con éxito (Pendiente de aprobación)" });
