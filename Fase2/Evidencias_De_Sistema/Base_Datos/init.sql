@@ -47,7 +47,7 @@ CREATE TABLE Adoptantes (
   telefono VARCHAR(20),
   direccion VARCHAR(255),
   estado_verificacion_contacto BOOLEAN DEFAULT FALSE,
-  preferencia_mascota VARCHAR(50),
+  preferencia_mascota VARCHAR(50)
 );
 
 CREATE TABLE Fichas_Clinicas (
