@@ -4,6 +4,7 @@ const db = require('../db');
 const multer = require('multer');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const { generarCorreoPostulacion } = require('../utils/emailPostulaciones');
 
 
 const storage = multer.diskStorage({
@@ -238,6 +239,10 @@ router.put('/:id', async (req, res) => {
         const { estado_postulacion, detalle_historial } = req.body;
         const refugio_id = req.usuario.refugio_id;
 
+        if (!estado_postulacion) {
+            return res.status(400).json({ error: "Debes indicar el nuevo estado_postulacion" });
+        }
+
         const postulacionActualizada = await db.query(
             `UPDATE Postulaciones 
              SET estado_postulacion = $1 
@@ -248,6 +253,17 @@ router.put('/:id', async (req, res) => {
 
         if (postulacionActualizada.rowCount === 0) {
             return res.status(404).json({ error: "Postulación no encontrada o sin permisos" });
+        }
+
+        const postulacion = postulacionActualizada.rows[0];
+
+        if (estado_postulacion === 'Aprobada') {
+            await db.query(
+                `UPDATE Animales 
+                 SET estado = 'Adoptado' 
+                 WHERE id = $1 AND refugio_id = $2`,
+                [postulacion.animal_id, refugio_id]
+            );
         }
 
         await db.query(
@@ -262,41 +278,42 @@ router.put('/:id', async (req, res) => {
         let correoEnviado = false;
         try {
             if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-                const infoAdoptante = await db.query(
-                    'SELECT email, nombre_completo FROM Adoptantes WHERE id = $1',
-                    [postulacionActualizada.rows[0].adoptante_id]
-                );
-
-                const infoRefugio = await db.query(
-                    'SELECT nombre_organizacion, email_contacto, color_principal FROM Refugios WHERE id = $1',
-                    [refugio_id]
-                );
+                const [infoAdoptante, infoRefugio, infoAnimal] = await Promise.all([
+                    db.query('SELECT email, nombre_completo FROM Adoptantes WHERE id = $1', [postulacion.adoptante_id]),
+                    db.query('SELECT nombre_organizacion, email_contacto, color_principal FROM Refugios WHERE id = $1', [refugio_id]),
+                    db.query('SELECT nombre FROM Animales WHERE id = $1', [postulacion.animal_id])
+                ]);
 
                 if (infoAdoptante.rowCount > 0 && infoRefugio.rowCount > 0) {
                     const { email: correoDestino, nombre_completo: nombreAdoptante } = infoAdoptante.rows[0];
                     const { nombre_organizacion, email_contacto, color_principal } = infoRefugio.rows[0];
-                    
-                    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173';
-                    const frontendUrl = `${frontendBase}/mis-postulaciones/${id}`;
-                    const colorBoton = color_principal || '#F9A8D4';
+                    const nombreMascota = infoAnimal.rows[0]?.nombre || 'tu futura mascota';
+
+                    let frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173')
+                        .trim()
+                        .replace(/['"\r\n\s]/g, '')
+                        .replace(/\/+$/, '');
+
+                    if (!/^https?:\/\//i.test(frontendBase)) {
+                        frontendBase = `https://${frontendBase}`;
+                    }
+                    const frontendUrl = `${frontendBase}/mis-postulaciones/${encodeURIComponent(id)}`;
+
+                    const { subject, html } = generarCorreoPostulacion({
+                        estado: estado_postulacion,
+                        nombreAdoptante,
+                        nombreMascota,
+                        nombreRefugio: nombre_organizacion,
+                        colorPrincipal: color_principal,
+                        frontendUrl
+                    });
 
                     await transporter.sendMail({
                         from: `"${nombre_organizacion} (Huellita Segura)" <${process.env.EMAIL_USER}>`,
                         replyTo: email_contacto || process.env.EMAIL_USER,
                         to: correoDestino,
-                        subject: `Actualización de tu postulación en ${nombre_organizacion} 🐾`,
-                        html: `
-                            <div style="font-family: Arial, sans-serif; color: #334155; max-width: 600px;">
-                                <h2>Hola, ${nombreAdoptante}</h2>
-                                <p><strong>${nombre_organizacion}</strong> ha actualizado tu postulación a la etapa: <strong>${estado_postulacion}</strong>.</p>
-                                <br>
-                                <a href="${frontendUrl}" style="padding: 12px 24px; background-color: ${colorBoton}; color: white; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
-                                    Ver estado de mi postulación
-                                </a>
-                                <br><br>
-                                <p>Si tienes dudas, puedes responder directamente a este correo para contactar al refugio.</p>
-                            </div>
-                        `
+                        subject,
+                        html
                     });
                     correoEnviado = true;
                 }
@@ -309,7 +326,7 @@ router.put('/:id', async (req, res) => {
             mensaje: correoEnviado
                 ? "Estado actualizado y correo enviado al adoptante"
                 : "Estado actualizado (correo no enviado, revisa configuración SMTP)",
-            datos: postulacionActualizada.rows[0]
+            datos: postulacion
         });
     } catch (error) {
         console.error("Error al actualizar postulación:", error);

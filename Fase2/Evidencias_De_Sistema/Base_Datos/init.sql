@@ -52,13 +52,15 @@ CREATE TABLE Adoptantes (
 
 CREATE TABLE Fichas_Clinicas (
   id SERIAL PRIMARY KEY,
-  animal_id INTEGER REFERENCES Animales(id) ON DELETE CASCADE,
+  animal_id INTEGER UNIQUE REFERENCES Animales(id) ON DELETE CASCADE,
   refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
   esterilizado BOOLEAN DEFAULT FALSE,
   vacunas_al_dia BOOLEAN DEFAULT FALSE,
+  vacunas JSONB DEFAULT '[]'::jsonb,
   peso_kg DECIMAL(5,2),
   diagnostico_ingreso TEXT,
   observaciones_medicas TEXT,
+  pdf_url VARCHAR(255),
   fecha_ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
