@@ -6,7 +6,7 @@ import {
   User, MessageCircle, ShieldCheck, ArrowRight, AlertCircle,
   ShieldAlert, Calendar, X
 } from 'lucide-react';
-import MarcoLegal from './MarcoLegal'; // <-- Importación añadida
+import MarcoLegal from './MarcoLegal';
 
 export default function FichaSolicitud() {
   const { id } = useParams();
@@ -100,9 +100,10 @@ export default function FichaSolicitud() {
             rut: rutAdoptante,
             telefono: post.telefono_adoptante || '',
             correo: post.correo_adoptante || '',
-            ciudad: post.direccion_adoptante || 'No especificada', 
+            ciudad: post.direccion_adoptante || 'No especificada',
+            foto: post.foto_adoptante || '',
             avatar: (post.nombre_adoptante || 'A').charAt(0).toUpperCase()
-          },
+            },
           mascota: {
             nombre: post.nombre_animal || 'No especificada',
             especie: post.especie_animal || 'No especificada',
@@ -178,23 +179,24 @@ export default function FichaSolicitud() {
     }
   };
 
-  // Función para procesar el rechazo
+  // Función para procesar el rechazo (usando PUT para guardar estado y disparar correo)
   const procesarRechazo = async () => {
-    setModalRechazo(false); // Cerramos modal
+    setModalRechazo(false);
     setEnviandoAccion(true);
     try {
       const token = localStorage.getItem('token');
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-      const res = await fetch(`${apiBase}/postulaciones/${solicitud.id}/respuesta`, {
-        method: 'POST',
+      const res = await fetch(`${apiBase}/postulaciones/${solicitud.id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          accion: 'rechazar',
-          motivo: motivoRechazo
+          estado_postulacion: 'Rechazada',
+          motivo: motivoRechazo,
+          motivo_rechazo: motivoRechazo
         })
       });
 
@@ -202,12 +204,12 @@ export default function FichaSolicitud() {
         setSolicitud(prev => ({ ...prev, estado: 'Rechazada' }));
         mostrarToast(`Solicitud rechazada. Correo enviado a ${solicitud.postulante.nombre}.`);
       } else {
-        mostrarToast('Error al procesar el rechazo.', 'error');
+        const errorData = await res.json().catch(() => ({}));
+        mostrarToast(errorData.error || 'Error al procesar el rechazo.', 'error');
       }
     } catch (err) {
       console.error("Error al rechazar:", err);
-      setSolicitud(prev => ({ ...prev, estado: 'Rechazada' }));
-      mostrarToast('Marcado como rechazado localmente.', 'error');
+      mostrarToast('Error de conexión al procesar el rechazo.', 'error');
     } finally {
       setEnviandoAccion(false);
     }
@@ -354,13 +356,21 @@ export default function FichaSolicitud() {
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             
             {/* Info del Adoptante */}
-            <div className="flex items-start sm:items-center gap-4 md:gap-5 w-full lg:w-auto">
-              <div 
-                className="w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-3xl font-extrabold text-white shadow-md shrink-0 mt-1 sm:mt-0"
-                style={{ backgroundColor: tema.secundario }}
-              >
-                {solicitud.postulante.avatar}
-              </div>
+<div className="flex items-start sm:items-center gap-4 md:gap-5 w-full lg:w-auto">
+  {solicitud.postulante.foto ? (
+    <img
+      src={solicitud.postulante.foto}
+      alt={solicitud.postulante.nombre}
+      className="w-14 h-14 md:w-20 md:h-20 rounded-full object-cover shadow-md shrink-0 mt-1 sm:mt-0 border-2 border-white"
+    />
+  ) : (
+    <div 
+      className="w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-3xl font-extrabold text-white shadow-md shrink-0 mt-1 sm:mt-0"
+      style={{ backgroundColor: tema.secundario }}
+    >
+      {solicitud.postulante.avatar}
+    </div>
+  )}
               
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
@@ -421,7 +431,8 @@ export default function FichaSolicitud() {
                 </button>
                 <button 
                   onClick={() => setModalRechazo(true)}
-                  className="flex-1 sm:flex-none px-3 md:px-6 py-2.5 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center gap-2 justify-center text-xs md:text-sm text-center"
+                  disabled={enviandoAccion || solicitud.estado === 'Rechazada'}
+                  className="flex-1 sm:flex-none px-3 md:px-6 py-2.5 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center gap-2 justify-center text-xs md:text-sm text-center disabled:opacity-50"
                 >
                   <XCircle className="w-4 h-4 shrink-0"/> Rechazar
                 </button>
@@ -488,8 +499,6 @@ export default function FichaSolicitud() {
           {/* ETAPA 1 */}
           {tabActiva === 'formulario' && (
             <div className="space-y-6 md:space-y-8 animate-fadeIn">
-              
-              {/* Contenedor del título que ahora se apila en móvil */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 gap-3">
                 <div>
                   <h2 className="text-lg md:text-xl font-extrabold text-slate-800">Detalles del Hogar y Estilo de Vida</h2>
@@ -508,16 +517,24 @@ export default function FichaSolicitud() {
                 <div className="md:col-span-2"><p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase mb-1">Motivación para adoptar</p><p className="font-medium text-slate-700 bg-slate-50 p-3 md:p-4 rounded-xl text-sm md:text-base">{solicitud.respuestas.motivacion}</p></div>
               </div>
 
-              {/* 👇 COMPONENTE MARCO LEGAL INTEGRADO AQUÍ 👇 */}
               <div className="pt-4">
                 <MarcoLegal />
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center pt-6 border-t border-slate-100 gap-3">
-                <button onClick={() => setModalRechazo(true)} disabled={enviandoAccion} className="w-full sm:w-auto px-6 py-3 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm">
+                <button
+                  onClick={() => setModalRechazo(true)}
+                  disabled={enviandoAccion || solicitud.estado === 'Rechazada'}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                >
                   <XCircle className="w-5 h-5 shrink-0"/> Rechazar
                 </button>
-                <button onClick={() => avanzarEtapaInteligente('evaluacion', 'En Evaluación')} disabled={enviandoAccion} className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 shadow-sm transition hover:opacity-90 disabled:opacity-50 text-sm" style={{ backgroundColor: tema.principal }}>
+                <button
+                  onClick={() => avanzarEtapaInteligente('evaluacion', 'En Evaluación')}
+                  disabled={enviandoAccion}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 shadow-sm transition hover:opacity-90 disabled:opacity-50 text-sm"
+                  style={{ backgroundColor: tema.principal }}
+                >
                   Evaluación y Notas <ArrowRight className="w-5 h-5 shrink-0"/>
                 </button>
               </div>
@@ -537,7 +554,7 @@ export default function FichaSolicitud() {
                   <h3 className="font-bold text-slate-700 mb-3 text-sm md:text-base">Checklist de Verificación</h3>
                   <div className="space-y-3">
                     <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100"><input type="checkbox" className="w-4 h-4 md:w-5 md:h-5 rounded text-pink-500" /><span className="font-medium text-sm md:text-base">Entrevista realizada</span></label>
-                    <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100"><input type="checkbox" className="w-4 h-4 md:w-5 md:h-5 rounded text-pink-500" /><span className="font-medium text-sm md:text-base">Visita domiciliaria</span></label>
+                    <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100"><input type="checkbox" className="w-4 h-4 md:w-5 md:h-5 rounded text-pink-500" /><span className="font-medium text-sm md:text-base">Visita domiciliaria/fotos</span></label>
                     <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100"><input type="checkbox" className="w-4 h-4 md:w-5 md:h-5 rounded text-pink-500" /><span className="font-medium text-sm md:text-base">Aprobación comité</span></label>
                   </div>
                 </div>
@@ -551,12 +568,29 @@ export default function FichaSolicitud() {
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center pt-6 border-t border-slate-100 gap-3">
-                <button onClick={() => setTabActiva('formulario')} className="w-full sm:w-auto px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 text-sm flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setTabActiva('formulario')}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 text-sm flex items-center justify-center gap-2"
+                >
                   <ArrowLeft className="w-4 h-4"/> Volver
                 </button>
-                <button onClick={() => avanzarEtapaInteligente('documentos', 'Revisión de Documentos')} disabled={enviandoAccion} className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 text-sm" style={{ backgroundColor: tema.principal }}>
-                  Siguiente: Documentos <ArrowRight className="w-5 h-5 shrink-0"/>
-                </button>
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3">
+                  <button
+                    onClick={() => setModalRechazo(true)}
+                    disabled={enviandoAccion || solicitud.estado === 'Rechazada'}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    <XCircle className="w-5 h-5 shrink-0"/> Rechazar
+                  </button>
+                  <button
+                    onClick={() => avanzarEtapaInteligente('documentos', 'Revisión de Documentos')}
+                    disabled={enviandoAccion}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 shadow-sm transition hover:opacity-90 disabled:opacity-50 text-sm"
+                    style={{ backgroundColor: tema.principal }}
+                  >
+                    Siguiente: Documentos <ArrowRight className="w-5 h-5 shrink-0"/>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -586,17 +620,34 @@ export default function FichaSolicitud() {
               )}
 
               <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center pt-6 border-t border-slate-100 gap-3">
-                <button onClick={() => setTabActiva('evaluacion')} className="w-full sm:w-auto px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 text-sm flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setTabActiva('evaluacion')}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 text-sm flex items-center justify-center gap-2"
+                >
                   <ArrowLeft className="w-4 h-4"/> Volver
                 </button>
-                <button onClick={() => avanzarEtapaInteligente('historial', 'Cierre y Contrato')} disabled={enviandoAccion} className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 text-sm" style={{ backgroundColor: tema.principal }}>
-                  Cierre y Contrato <ArrowRight className="w-5 h-5 shrink-0"/>
-                </button>
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3">
+                  <button
+                    onClick={() => setModalRechazo(true)}
+                    disabled={enviandoAccion || solicitud.estado === 'Rechazada'}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    <XCircle className="w-5 h-5 shrink-0"/> Rechazar
+                  </button>
+                  <button
+                    onClick={() => avanzarEtapaInteligente('historial', 'Cierre y Contrato')}
+                    disabled={enviandoAccion}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 shadow-sm transition hover:opacity-90 disabled:opacity-50 text-sm"
+                    style={{ backgroundColor: tema.principal }}
+                  >
+                    Cierre y Contrato <ArrowRight className="w-5 h-5 shrink-0"/>
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* ETAPA 4 (Agregada para completar el flujo según los botones y el corte del código) */}
+          {/* ETAPA 4 */}
           {tabActiva === 'historial' && (
             <div className="animate-fadeIn space-y-6 md:space-y-8">
               <div className="border-b border-slate-100 pb-4">
@@ -613,12 +664,28 @@ export default function FichaSolicitud() {
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center pt-6 border-t border-slate-100 gap-3">
-                <button onClick={() => setTabActiva('documentos')} className="w-full sm:w-auto px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 text-sm flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setTabActiva('documentos')}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl text-slate-600 bg-slate-100 font-bold hover:bg-slate-200 text-sm flex items-center justify-center gap-2"
+                >
                   <ArrowLeft className="w-4 h-4"/> Volver
                 </button>
-                <button onClick={() => avanzarEtapaInteligente('historial', 'Aprobada')} disabled={enviandoAccion} className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 text-sm bg-emerald-500 hover:bg-emerald-600 transition shadow-sm">
-                  <CheckCircle className="w-5 h-5 shrink-0"/> Aprobar Adopción
-                </button>
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3">
+                  <button
+                    onClick={() => setModalRechazo(true)}
+                    disabled={enviandoAccion || solicitud.estado === 'Rechazada'}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    <XCircle className="w-5 h-5 shrink-0"/> Rechazar
+                  </button>
+                  <button
+                    onClick={() => avanzarEtapaInteligente('historial', 'Aprobada')}
+                    disabled={enviandoAccion || solicitud.estado === 'Aprobada' || solicitud.estado === 'Rechazada'}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 text-sm bg-emerald-500 hover:bg-emerald-600 transition shadow-sm disabled:opacity-50"
+                  >
+                    <CheckCircle className="w-5 h-5 shrink-0"/> Aprobar Adopción
+                  </button>
+                </div>
               </div>
             </div>
           )}

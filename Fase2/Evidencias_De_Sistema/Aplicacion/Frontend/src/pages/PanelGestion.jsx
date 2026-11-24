@@ -2,6 +2,24 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Edit, X, Upload, Cat, Plus, FileText, AlertTriangle } from 'lucide-react';
 
+// ✅ 1. Lista de vacunas por especie
+const VACUNAS_POR_ESPECIE = {
+  Perro: [
+    'Óctuple / Séxtuple',
+    'Antirrábica',
+    'KC (Tos de las perreras)',
+    'Desparasitación Interna',
+    'Desparasitación Externa'
+  ],
+  Gato: [
+    'Triple Felina',
+    'Leucemia Felina (FeLV)',
+    'Antirrábica',
+    'Desparasitación Interna',
+    'Desparasitación Externa'
+  ]
+};
+
 export default function PanelGestion({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -55,6 +73,7 @@ export default function PanelGestion({ onLogout }) {
   const [mensajeRespuesta, setMensajeRespuesta] = useState('');
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
 
+  // ✅ 2. Se agrega vacunas: [] al estado inicial
   const [formAnimal, setFormAnimal] = useState({
     nombre: '',
     especie: 'Perro',
@@ -67,6 +86,7 @@ export default function PanelGestion({ onLogout }) {
     foto_url: '',
     esterilizado: false,
     vacunas_al_dia: false,
+    vacunas: [],
     observaciones: '',
     pdf_ficha: null
   });
@@ -74,18 +94,15 @@ export default function PanelGestion({ onLogout }) {
   const [tema, setTema] = useState({ principal: '#94a3b8', secundario: '#cbd5e1' });
   const [nombreOrganizacion, setNombreOrganizacion] = useState('Gestión de Refugio');
 
-  // Función auxiliar para verificar si un adoptante está reportado según su RUT (ACTUALIZADA)
   // 1. FUNCIÓN DE BÚSQUEDA (A prueba de puntos y guiones en el RUT)
   const obtenerReportesAdoptante = (solicitud) => {
     if (!solicitud) return [];
 
-    // Función auxiliar para quitar puntos, guiones y espacios de cualquier RUT
     const limpiarRut = (str) => {
       if (!str) return '';
       return str.toString().replace(/[.-]/g, '').trim().toLowerCase();
     };
 
-    // Obtenemos y limpiamos los datos de la solicitud
     const rutRaw = solicitud.rut || solicitud.rut_adoptante || solicitud.rut_persona || solicitud.adoptante_rut || '';
     const rutLimpio = limpiarRut(rutRaw);
     
@@ -93,20 +110,14 @@ export default function PanelGestion({ onLogout }) {
     const nombre = (solicitud.nombre_adoptante || solicitud.nombre_completo || solicitud.nombre || '').trim().toLowerCase();
 
     return alertasRed.filter(a => {
-      // Obtenemos y limpiamos los datos del reporte (alerta)
       const aRutRaw = a.adoptante_rut || a.rut || '';
       const aRutLimpio = limpiarRut(aRutRaw);
       
       const aEmail = (a.correo || a.email || a.adoptante_email || '').trim().toLowerCase();
       const aNombre = (a.nombre_adoptante || a.nombre || '').trim().toLowerCase();
 
-      // 1. Coincidencia por RUT (ya sin puntos ni guiones, ej: "123456789" === "123456789")
       const coincideRut = rutLimpio && rutLimpio !== 'sinrut' && aRutLimpio === rutLimpio;
-      
-      // 2. Coincidencia por Email
       const coincideEmail = email && aEmail === email;
-      
-      // 3. Coincidencia por Nombre
       const coincideNombre = nombre && aNombre === nombre;
 
       return coincideRut || coincideEmail || coincideNombre;
@@ -151,36 +162,31 @@ export default function PanelGestion({ onLogout }) {
           'Authorization': `Bearer ${token}`
         };
 
-        // Usamos allSettled para evitar que una sola petición caída rompa todo el panel
         const resultados = await Promise.allSettled([
           fetch(`${import.meta.env.VITE_API_URL}/postulaciones`, { headers }),
           fetch(`${import.meta.env.VITE_API_URL}/animales`, { headers }),
           fetch(`${import.meta.env.VITE_API_URL}/refugios`, { headers }),
-          fetch(`${import.meta.env.VITE_API_URL}/reportes-adoptantes`, { headers }) // 🚨 Carga de reportes
+          fetch(`${import.meta.env.VITE_API_URL}/reportes-adoptantes`, { headers })
         ]);
 
-        // Procesar Adoptantes
         let listaAdoptantes = [];
         if (resultados[0].status === 'fulfilled' && resultados[0].value.ok) {
           const datosAdoptantes = await resultados[0].value.json();
           listaAdoptantes = Array.isArray(datosAdoptantes) ? datosAdoptantes : (datosAdoptantes.data || datosAdoptantes.datos || datosAdoptantes.adoptantes || []);
         }
 
-        // Procesar Animales
         let listaAnimales = [];
         if (resultados[1].status === 'fulfilled' && resultados[1].value.ok) {
           const datosAnimales = await resultados[1].value.json();
           listaAnimales = Array.isArray(datosAnimales) ? datosAnimales : (datosAnimales.data || datosAnimales.datos || datosAnimales.animales || []);
         }
 
-        // Procesar Refugios
         let listaRefugios = [];
         if (resultados[2].status === 'fulfilled' && resultados[2].value.ok) {
           const datosRefugios = await resultados[2].value.json();
           listaRefugios = Array.isArray(datosRefugios) ? datosRefugios : (datosRefugios.data || datosRefugios.datos || datosRefugios.refugios || []);
         }
 
-        // Procesar Alertas
         let listaAlertas = [];
         if (resultados[3] && resultados[3].status === 'fulfilled' && resultados[3].value.ok) {
           const datosAlertas = await resultados[3].value.json();
@@ -195,7 +201,8 @@ export default function PanelGestion({ onLogout }) {
         if (listaAdoptantes.length > 0) {
           setSeleccionado(listaAdoptantes[0]);
         }
-// --- LÓGICA DEL NOMBRE DE LA ORGANIZACIÓN ---
+
+        // --- LÓGICA DEL NOMBRE DE LA ORGANIZACIÓN ---
         if (usuarioGuardado.organizacion) {
           setNombreOrganizacion(usuarioGuardado.organizacion);
         } else {
@@ -267,6 +274,7 @@ export default function PanelGestion({ onLogout }) {
       foto_url: '',
       esterilizado: false,
       vacunas_al_dia: false,
+      vacunas: [],
       observaciones: '',
       pdf_ficha: null
     });
@@ -276,31 +284,83 @@ export default function PanelGestion({ onLogout }) {
     setModalFormAbierto(true);
   };
 
-  const abrirModalEditar = (animal, e) => {
-    if (e) e.stopPropagation();
-    setModoModal('editar');
-    setAnimalEditandoId(animal.id);
-    const fotoActual = animal.foto || animal.foto_url || '';
-    setFormAnimal({
-      nombre: animal.nombre || '',
-      especie: animal.especie || 'Perro',
-      raza: animal.raza || '',
-      sexo: animal.sexo || 'Macho',
-      edad: animal.edad || '',
-      historia: animal.historia || '',
-      estado: animal.estado || 'En adopción',
-      microchip: animal.microchip || '',
-      foto_url: fotoActual,
-      esterilizado: animal.esterilizado || false,
-      vacunas_al_dia: animal.vacunas_al_dia || false,
-      observaciones: animal.observaciones || '',
-      pdf_ficha: null
+  // ✅ 3. Ahora carga también la ficha clínica guardada para precargar las vacunas y checkboxes
+  // Helpers para evitar problemas de formato entre BD/Backend y React
+const parsearVacunas = (vacunas) => {
+  if (!vacunas) return [];
+  if (Array.isArray(vacunas)) return vacunas;
+  if (typeof vacunas === 'string') {
+    const texto = vacunas.trim();
+    if (!texto || texto === '[]') return [];
+    try {
+      const parsed = JSON.parse(texto);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return texto.split(',').map((v) => v.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
+
+const aBooleano = (valor) => {
+  return valor === true || valor === 1 || valor === '1' || valor === 'true';
+};
+
+// ✅ Versión blindada de abrirModalEditar
+const abrirModalEditar = async (animal, e) => {
+  if (e) e.stopPropagation();
+  setModoModal('editar');
+  setAnimalEditandoId(animal.id);
+  const fotoActual = animal.foto || animal.foto_url || '';
+
+  setFormAnimal({
+    nombre: animal.nombre || '',
+    especie: animal.especie || 'Perro',
+    raza: animal.raza || '',
+    sexo: animal.sexo || 'Macho',
+    edad: animal.edad || '',
+    historia: animal.historia || '',
+    estado: animal.estado || 'En adopción',
+    microchip: animal.microchip || '',
+    foto_url: fotoActual,
+    esterilizado: aBooleano(animal.esterilizado),
+    vacunas_al_dia: aBooleano(animal.vacunas_al_dia),
+    vacunas: parsearVacunas(animal.vacunas),
+    observaciones: animal.observaciones || '',
+    pdf_ficha: null
+  });
+  setArchivoFoto(null);
+  setVistaPreviaFoto(obtenerUrlImagen(fotoActual));
+  setErrorForm('');
+  setModalFormAbierto(true);
+
+  try {
+    const token = localStorage.getItem('token');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const res = await fetch(`${apiBase}/fichas-clinicas/animal/${animal.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
-    setArchivoFoto(null);
-    setVistaPreviaFoto(obtenerUrlImagen(fotoActual));
-    setErrorForm('');
-    setModalFormAbierto(true);
-  };
+
+    if (res.ok) {
+      const ficha = await res.json();
+      const raw = ficha.datos || ficha.data || ficha;
+      const datosFicha = Array.isArray(raw) ? raw[0] : raw;
+
+      if (datosFicha) {
+        const vacunasFicha = parsearVacunas(datosFicha.vacunas);
+        setFormAnimal(prev => ({
+          ...prev,
+          esterilizado: datosFicha.esterilizado !== undefined ? aBooleano(datosFicha.esterilizado) : prev.esterilizado,
+          vacunas_al_dia: datosFicha.vacunas_al_dia !== undefined ? aBooleano(datosFicha.vacunas_al_dia) : prev.vacunas_al_dia,
+          vacunas: vacunasFicha.length > 0 ? vacunasFicha : prev.vacunas,
+          observaciones: datosFicha.observaciones ?? prev.observaciones
+        }));
+      }
+    }
+  } catch (err) {
+    console.error("Error al precargar ficha clínica para edición:", err);
+  }
+};
 
   const cerrarModalForm = () => {
     setModalFormAbierto(false);
@@ -315,6 +375,20 @@ export default function PanelGestion({ onLogout }) {
       setArchivoFoto(file);
       setVistaPreviaFoto(URL.createObjectURL(file));
     }
+  };
+
+  // ✅ 4. Función para marcar/desmarcar cada vacuna
+  const handleToggleVacuna = (nombreVacuna) => {
+    setFormAnimal((prev) => {
+      const listaActual = Array.isArray(prev.vacunas) ? prev.vacunas : [];
+      const yaTiene = listaActual.includes(nombreVacuna);
+      return {
+        ...prev,
+        vacunas: yaTiene
+          ? listaActual.filter((v) => v !== nombreVacuna)
+          : [...listaActual, nombreVacuna]
+      };
+    });
   };
 
   const handleSubmitAnimal = async (e) => {
@@ -340,9 +414,11 @@ export default function PanelGestion({ onLogout }) {
       formData.append('historia', formAnimal.historia || '');
       formData.append('edad', formAnimal.edad || '');
       
-      // Nuevos campos clínicos y adjunto PDF
+      // Nuevos campos clínicos, lista de vacunas y adjunto PDF
       formData.append('esterilizado', formAnimal.esterilizado ? 'true' : 'false');
       formData.append('vacunas_al_dia', formAnimal.vacunas_al_dia ? 'true' : 'false');
+      // ✅ 5. Envío del arreglo de vacunas como JSON
+      formData.append('vacunas', JSON.stringify(formAnimal.vacunas || []));
       formData.append('observaciones', formAnimal.observaciones || '');
 
       if (archivoFoto) {
@@ -884,65 +960,69 @@ if (loading) return <div className="min-h-screen flex items-center justify-cente
         )}
 
         {/* VISTA CATÁLOGO DE MASCOTAS */}
-        {vistaActiva === 'catalogo' && (
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 custom-scrollbar pb-8">
-            {animales.map((animal) => (
-              <div key={animal.id} className="bg-white rounded-4xl p-5 shadow-sm border border-slate-100 flex flex-col hover:shadow-lg transition-all duration-300 relative group">
-                
-                {/* BOTÓN EDITAR EN LA TARJETA */}
-                <button
-                  onClick={(e) => abrirModalEditar(animal, e)}
-                  className="absolute top-7 right-7 p-2.5 bg-white/90 hover:bg-white text-slate-600 rounded-full shadow-md transition transform hover:scale-110 z-10"
-                  title="Editar mascota"
-                >
-                  <Edit className="w-4 h-4 text-slate-700" />
-                </button>
+{vistaActiva === 'catalogo' && (
+  <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 content-start items-start custom-scrollbar pb-8">
+    {animales.map((animal) => (
+      <div
+        key={animal.id}
+        className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex flex-col hover:shadow-lg transition-all duration-300 group"
+      >
+        {/* Imagen + Badge de estado encima */}
+        <div className="relative h-52 w-full rounded-2xl mb-4 overflow-hidden" style={{ backgroundColor: `${tema.secundario}20` }}>
+          <div
+            className="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+            style={{
+              backgroundImage: `url(${obtenerUrlImagen(animal.foto || animal.foto_url)})`,
+            }}
+          />
+          <span
+            className={`absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm backdrop-blur-sm ${
+              animal.estado === 'En adopción' || animal.estado === 'Disponible'
+                ? 'bg-green-100/95 text-green-700'
+                : animal.estado === 'En tratamiento'
+                ? 'bg-amber-100/95 text-amber-700'
+                : 'bg-slate-100/95 text-slate-600'
+            }`}
+          >
+            {animal.estado}
+          </span>
+        </div>
 
-                {/* Imagen (se mapea tanto foto como foto_url) */}
-                <div 
-                  className="h-48 w-full rounded-3xl mb-4 bg-cover bg-center transition-transform duration-300 group-hover:scale-[1.01]" 
-                  style={{ 
-                    backgroundImage: `url(${obtenerUrlImagen(animal.foto || animal.foto_url)})`,
-                    backgroundColor: `${tema.secundario}20` 
-                  }}
-                />
-                <div className="flex justify-between items-start mb-2 pr-8">
-                  <h3 className="text-xl font-extrabold text-slate-800">{animal.nombre}</h3>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wide ${
-                    animal.estado === 'En adopción' || animal.estado === 'Disponible' 
-                      ? 'bg-green-100 text-green-600' 
-                      : animal.estado === 'En tratamiento' 
-                      ? 'bg-amber-100 text-amber-600' 
-                      : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {animal.estado}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-slate-500 mb-1">{animal.especie} {animal.raza ? `• ${animal.raza}` : ''}</p>
-                <p className="text-sm text-slate-400 mb-5">{animal.edad || 'Edad no especificada'} {animal.sexo}</p>
-                
-                <div className="mt-auto flex gap-2">
-                  <button 
-                    onClick={() => abrirModalAnimal(animal)}
-                    className="flex-1 py-3 rounded-2xl text-white font-bold transition hover:opacity-90 shadow-md"
-                    style={{ backgroundColor: tema.principal }}
-                  >
-                    Ver detalles
-                  </button>
-                  <button 
-                    onClick={(e) => abrirModalEditar(animal, e)}
-                    className="px-4 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition"
-                    title="Editar datos"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </section>
-        )}
+        {/* Información */}
+        <div className="px-1 mb-4">
+          <h3 className="text-xl font-extrabold text-slate-800 truncate">{animal.nombre}</h3>
+          <p className="text-sm font-medium text-slate-500 mt-0.5 truncate">
+            {animal.especie}{animal.raza ? ` • ${animal.raza}` : ''}
+          </p>
+          <p className="text-xs font-medium text-slate-400 mt-1">
+            {animal.edad || 'Edad no especificada'} • {animal.sexo}
+          </p>
+        </div>
+
+        {/* Botones de acción */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => abrirModalAnimal(animal)}
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition hover:opacity-90 shadow-sm"
+            style={{ backgroundColor: tema.principal }}
+          >
+            Ver detalles
+          </button>
+          <button
+            onClick={(e) => abrirModalEditar(animal, e)}
+            className="px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition"
+            title="Editar mascota"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    ))}
+  </section>
+)}
 
       </main>
+
       {/* MODAL DE REPORTES INDIVIDUALES (LISTA ROJA) */}
       {modalReportesAbierto && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -966,7 +1046,7 @@ if (loading) return <div className="min-h-screen flex items-center justify-cente
 
             <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
               {reportesDelAdoptante.map((reporte, index) => (
-                <div key={index} className="bg-red-50 border border-red-100 rounded-2xl p-4 flex flex-col gap-2">
+                <div key={reporte.id || index} className="bg-red-50 border border-red-100 rounded-2xl p-4 flex flex-col gap-2">
                   <div className="flex justify-between items-start">
                     <span className="bg-red-200 text-red-800 text-xs font-bold px-2 py-1 rounded-md uppercase">
                       {reporte.tipo_falta}
@@ -1006,159 +1086,244 @@ if (loading) return <div className="min-h-screen flex items-center justify-cente
       )}
 
       {/* MODAL DETALLES DE MASCOTA */}
-      {animalSeleccionado && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
-            
-            <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
-              <button 
-                onClick={(e) => {
-                  const anim = animalSeleccionado;
-                  setAnimalSeleccionado(null);
-                  abrirModalEditar(anim, e);
-                }}
-                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition flex items-center gap-1.5 px-4 font-bold text-xs"
-              >
-                <Edit className="w-4 h-4" /> Editar Mascota
-              </button>
-              <button 
-                onClick={() => setAnimalSeleccionado(null)}
-                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {animalSeleccionado && (() => {
+        const fichaNormalizada = fichaClinica?.datos || fichaClinica?.data || fichaClinica;
+        const datosFicha =
+          fichaNormalizada ||
+          (animalSeleccionado.esterilizado ||
+          animalSeleccionado.vacunas_al_dia ||
+          (Array.isArray(animalSeleccionado.vacunas) && animalSeleccionado.vacunas.length > 0) ||
+          animalSeleccionado.observaciones ||
+          animalSeleccionado.pdf_ficha ||
+          animalSeleccionado.pdf_url
+            ? animalSeleccionado
+            : null);
 
-            <div className="flex flex-col md:flex-row h-full overflow-y-auto">
+        let vacunasRegistradas = [];
+        if (Array.isArray(datosFicha?.vacunas)) {
+          vacunasRegistradas = datosFicha.vacunas;
+        } else if (typeof datosFicha?.vacunas === 'string') {
+          try {
+            vacunasRegistradas = JSON.parse(datosFicha.vacunas);
+          } catch {
+            vacunasRegistradas = [];
+          }
+        }
+
+        const descargarFichaClinica = (animal, ficha) => {
+          const datosMedicos = ficha || animal || {};
+          const listaVacunasTexto =
+            vacunasRegistradas.length > 0 ? vacunasRegistradas.join(', ') : 'Ninguna registrada';
+          const ventana = window.open('', '_blank', 'width=850,height=950');
+
+          ventana.document.write(`
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+              <meta charset="UTF-8" />
+              <title>Ficha Clínica - ${animal.nombre}</title>
+              <style>
+                body { font-family: Arial, sans-serif; color: #1e293b; padding: 32px; max-width: 800px; margin: auto; }
+                h1 { font-size: 22px; margin-bottom: 4px; color: #0f172a; }
+                .sub { color: #64748b; font-size: 13px; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; }
+                h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; margin-top: 22px; }
+                .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin-top: 12px; font-size: 13px; }
+                .campo { border-bottom: 1px solid #cbd5e1; padding: 6px 0; }
+                .campo-completo { grid-column: span 2; border-bottom: 1px solid #cbd5e1; padding: 6px 0; }
+                .campo strong, .campo-completo strong { color: #475569; }
+                .caja-notas { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 90px; margin-top: 10px; font-size: 13px; }
+                .firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; text-align: center; font-size: 12px; color: #475569; }
+                .firma-linea { border-top: 1px solid #334155; padding-top: 8px; }
+                @media print { body { padding: 10px; } }
+              </style>
+            </head>
+            <body>
+              <h1>🐾 Ficha Clínica Veterinaria</h1>
+              <div class="sub">Fecha de emisión: ${new Date().toLocaleDateString()} &nbsp;|&nbsp; Documento para completar por médico veterinario</div>
+
+              <h2>1. Datos de la Mascota</h2>
+              <div class="grid">
+                <div class="campo"><strong>Nombre:</strong> ${animal.nombre || ''}</div>
+                <div class="campo"><strong>Especie:</strong> ${animal.especie || ''}</div>
+                <div class="campo"><strong>Raza:</strong> ${animal.raza || 'No especificada'}</div>
+                <div class="campo"><strong>Sexo:</strong> ${animal.sexo || ''}</div>
+                <div class="campo"><strong>Edad aproximada:</strong> ${animal.edad || 'No especificada'}</div>
+                <div class="campo"><strong>Microchip:</strong> ${animal.microchip || 'Sin registro'}</div>
+                <div class="campo"><strong>Estado actual:</strong> ${animal.estado || ''}</div>
+                <div class="campo"><strong>Esterilizado/a:</strong> ${datosMedicos.esterilizado ? 'Sí' : 'No / Por confirmar'}</div>
+              </div>
+
+              <h2>2. Antecedentes Registrados</h2>
+              <div class="grid">
+                <div class="campo"><strong>Vacunas al día:</strong> ${datosMedicos.vacunas_al_dia ? 'Sí' : 'No / Incompletas'}</div>
+                <div class="campo"><strong>Observaciones previas:</strong> ${datosMedicos.observaciones || 'Ninguna'}</div>
+                <div class="campo-completo"><strong>Vacunas y desparasitación:</strong> ${listaVacunasTexto}</div>
+              </div>
+
+              <h2>3. Evaluación Veterinaria (Completar)</h2>
+              <div class="grid">
+                <div class="campo"><strong>Fecha de atención:</strong> _______________________</div>
+                <div class="campo"><strong>Peso (kg):</strong> _______________________</div>
+                <div class="campo"><strong>Temperatura (°C):</strong> _______________________</div>
+                <div class="campo"><strong>Condición corporal:</strong> _______________________</div>
+                <div class="campo"><strong>Vacunas aplicadas:</strong> _______________________</div>
+                <div class="campo"><strong>Desparasitación:</strong> _______________________</div>
+              </div>
+
+              <h2>4. Diagnóstico, Tratamiento e Indicaciones</h2>
+              <div class="caja-notas"></div>
+
+              <div class="firmas">
+                <div class="firma-linea">Nombre y Firma Médico Veterinario</div>
+                <div class="firma-linea">Timbre / Registro Profesional</div>
+              </div>
+
+              <script>
+                window.onload = () => { window.print(); };
+              </script>
+            </body>
+            </html>
+          `);
+          ventana.document.close();
+        };
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
               
-              {/* Columna Izquierda: Foto e Info General */}
-              <div className="md:w-2/5 p-8 border-r border-slate-100" style={{ backgroundColor: `${tema.secundario}10` }}>
-                <div 
-                  className="w-full h-64 rounded-3xl bg-cover bg-center mb-6 shadow-sm border-4 border-white"
-                  style={{ backgroundImage: `url(${obtenerUrlImagen(animalSeleccionado.foto || animalSeleccionado.foto_url)})` }}
-                />
-                <h2 className="text-3xl font-extrabold text-slate-800 mb-2">{animalSeleccionado.nombre}</h2>
-                <div className="flex flex-wrap gap-2 mb-6">
-                  <span className="px-3 py-1 bg-white rounded-xl text-xs font-bold text-slate-500 border border-slate-200">{animalSeleccionado.especie}</span>
-                  {animalSeleccionado.raza && <span className="px-3 py-1 bg-white rounded-xl text-xs font-bold text-slate-500 border border-slate-200">{animalSeleccionado.raza}</span>}
-                  <span className="px-3 py-1 bg-white rounded-xl text-xs font-bold text-slate-500 border border-slate-200">{animalSeleccionado.sexo}</span>
-                  <span className="px-3 py-1 bg-white rounded-xl text-xs font-bold text-slate-500 border border-slate-200">{animalSeleccionado.estado}</span>
-                </div>
+              <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
+                <button
+                  onClick={() => descargarFichaClinica(animalSeleccionado, datosFicha)}
+                  className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-full transition flex items-center gap-1.5 px-4 font-bold text-xs"
+                  title="Descargar o imprimir ficha clínica para veterinario"
+                >
+                  <FileText className="w-4 h-4" /> Descargar Ficha
+                </button>
+                <button 
+                  onClick={(e) => {
+                    const anim = animalSeleccionado;
+                    setAnimalSeleccionado(null);
+                    abrirModalEditar(anim, e);
+                  }}
+                  className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition flex items-center gap-1.5 px-4 font-bold text-xs"
+                >
+                  <Edit className="w-4 h-4" /> Editar Mascota
+                </button>
+                <button 
+                  onClick={() => setAnimalSeleccionado(null)}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col md:flex-row h-full overflow-y-auto">
                 
-                <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
-                  <span style={{ color: tema.principal }}>📖</span> Historia / Contexto
-                </h3>
-                <p className="text-sm text-slate-500 leading-relaxed whitespace-pre-wrap">
-                  {animalSeleccionado.historia || 'No hay información registrada sobre cómo llegó al refugio o su comportamiento actual.'}
-                </p>
-              </div>
-
-              {/* Columna Derecha: Ficha Médica */}
-              <div className="md:w-3/5 p-8 bg-white">
-                <h3 className="text-xl font-extrabold text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2 pr-28 md:pr-36 whitespace-normal flex-wrap">
-                  <span style={{ color: tema.principal }}>⚕️</span> Ficha Médica e Historial Veterinario
-                </h3>
-
-                {cargandoFicha ? (
-                  <div className="flex items-center justify-center h-40 text-slate-400 font-medium">Cargando ficha...</div>
-                ) : fichaClinica ? (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
-                        <p className="text-xs text-slate-400 font-bold uppercase mb-1">Estado Reproductivo</p>
-                        <p className="font-bold text-slate-700 flex items-center gap-2">
-                          {fichaClinica.esterilizado ? '✅ Esterilizado/a' : '❌ Sin esterilizar'}
-                        </p>
-                      </div>
-                      <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
-                        <p className="text-xs text-slate-400 font-bold uppercase mb-1">Vacunas</p>
-                        <p className="font-bold text-slate-700 flex items-center gap-2">
-                          {fichaClinica.vacunas_al_dia ? '✅ Al día' : '❌ Incompletas'}
-                        </p>
-                      </div>
-                    </div>
-                    {fichaClinica.observaciones && (
-                      <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
-                        <p className="text-xs text-slate-400 font-bold uppercase mb-1">Observaciones</p>
-                        <p className="text-sm text-slate-600 font-medium">{fichaClinica.observaciones}</p>
-                      </div>
-                    )}
+                {/* Columna Izquierda: Foto e Info General */}
+                <div className="md:w-2/5 p-8 border-r border-slate-100" style={{ backgroundColor: `${tema.secundario}10` }}>
+                  <div 
+                    className="w-full h-64 rounded-3xl bg-cover bg-center mb-6 shadow-sm border-4 border-white"
+                    style={{ backgroundImage: `url(${obtenerUrlImagen(animalSeleccionado.foto || animalSeleccionado.foto_url)})` }}
+                  />
+                  <h2 className="text-3xl font-extrabold text-slate-800 mb-2">{animalSeleccionado.nombre}</h2>
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    <span className="px-3 py-1 bg-white rounded-xl text-xs font-bold text-slate-500 border border-slate-200">{animalSeleccionado.especie}</span>
+                    {animalSeleccionado.raza && <span className="px-3 py-1 bg-white rounded-xl text-xs font-bold text-slate-500 border border-slate-200">{animalSeleccionado.raza}</span>}
+                    <span className="px-3 py-1 bg-white rounded-xl text-xs font-bold text-slate-500 border border-slate-200">{animalSeleccionado.sexo}</span>
+                    <span className="px-3 py-1 bg-white rounded-xl text-xs font-bold text-slate-500 border border-slate-200">{animalSeleccionado.estado}</span>
                   </div>
-                ) : (
-                  <div className="p-6 bg-slate-50 rounded-2xl text-center space-y-3">
-                    <p className="text-slate-400 text-sm font-medium">No hay ficha clínica registrada para este animal.</p>
-                    <button 
-                      onClick={(e) => {
-                        const anim = animalSeleccionado;
-                        setAnimalSeleccionado(null);
-                        abrirModalEditar(anim, e);
-                      }}
-                      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition"
-                    >
-                      + Agregar Ficha Médica y Certificado
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* MODAL DETALLES DE MASCOTA */}
-      {animalSeleccionado && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 ...">
-          {/* ... todo el código del modal de la mascota ... */}
-        </div>
-      )}
-
-      {/* 🚨 MODAL HISTORIAL DE REPORTES DEL ADOPTANTE (PÉGALO AQUÍ) 🚨 */}
-      {modalReportesAbierto && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-            
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-red-50">
-              <h3 className="font-bold text-red-600 flex items-center gap-2 text-lg">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
-                Historial de Reportes
-              </h3>
-              <button onClick={() => setModalReportesAbierto(false)} className="text-red-400 hover:text-red-600 transition">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto max-h-[60vh] bg-slate-50 flex flex-col gap-3">
-              <p className="text-sm font-medium text-slate-500 mb-2">
-                Esta persona tiene <strong>{reportesDelAdoptante.length} advertencia(s)</strong> registradas en la red.
-              </p>
-              
-              {reportesDelAdoptante.map((reporte, index) => (
-                <div key={reporte.id || index} className="p-4 bg-white border-l-4 border-red-500 rounded-xl shadow-sm">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-extrabold text-slate-700 text-sm">{reporte.tipo_falta}</span>
-                    <span className="text-xs font-bold text-slate-400">
-                      {reporte.fecha_reporte ? new Date(reporte.fecha_reporte).toLocaleDateString() : 'Sin fecha'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600 mt-1 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    {reporte.descripcion || 'Sin descripción detallada.'}
+                  
+                  <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <span style={{ color: tema.principal }}>📖</span> Historia / Contexto
+                  </h3>
+                  <p className="text-sm text-slate-500 leading-relaxed whitespace-pre-wrap">
+                    {animalSeleccionado.historia || 'No hay información registrada sobre cómo llegó al refugio o su comportamiento actual.'}
                   </p>
                 </div>
-              ))}
-            </div>
 
-            <div className="p-4 border-t border-slate-100 bg-white flex justify-end">
-              <button
-                onClick={() => setModalReportesAbierto(false)}
-                className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition"
-              >
-                Entendido
-              </button>
+                {/* Columna Derecha: Ficha Médica */}
+                <div className="md:w-3/5 p-8 bg-white">
+                  <h3 className="text-xl font-extrabold text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2 pr-48 whitespace-normal flex-wrap">
+                    <span style={{ color: tema.principal }}>⚕️</span> Ficha Médica e Historial Veterinario
+                  </h3>
+
+                  {cargandoFicha ? (
+                    <div className="flex items-center justify-center h-40 text-slate-400 font-medium">Cargando ficha...</div>
+                  ) : datosFicha ? (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                          <p className="text-xs text-slate-400 font-bold uppercase mb-1">Estado Reproductivo</p>
+                          <p className="font-bold text-slate-700 flex items-center gap-2">
+                            {datosFicha.esterilizado ? '✅ Esterilizado/a' : '❌ Sin esterilizar'}
+                          </p>
+                        </div>
+                        <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                          <p className="text-xs text-slate-400 font-bold uppercase mb-1">Vacunas</p>
+                          <p className="font-bold text-slate-700 flex items-center gap-2">
+                            {datosFicha.vacunas_al_dia ? '✅ Al día' : '❌ Incompletas'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* LISTA DE VACUNAS APLICADAS */}
+                      <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                        <p className="text-xs text-slate-400 font-bold uppercase mb-2">Vacunas y Desparasitación Aplicadas</p>
+                        {vacunasRegistradas.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {vacunasRegistradas.map((vac) => (
+                              <span
+                                key={vac}
+                                className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              >
+                                💉 {vac}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 font-medium">No hay vacunas específicas marcadas.</p>
+                        )}
+                      </div>
+
+                      {datosFicha.observaciones && (
+                        <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                          <p className="text-xs text-slate-400 font-bold uppercase mb-1">Observaciones</p>
+                          <p className="text-sm text-slate-600 font-medium">{datosFicha.observaciones}</p>
+                        </div>
+                      )}
+
+                      {(datosFicha.pdf_ficha || datosFicha.pdf_url) && typeof (datosFicha.pdf_ficha || datosFicha.pdf_url) === 'string' && (
+                        <a
+                          href={obtenerUrlImagen(datosFicha.pdf_ficha || datosFicha.pdf_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
+                        >
+                          <FileText className="w-4 h-4" /> Ver Certificado / PDF Adjunto
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-6 bg-slate-50 rounded-2xl text-center space-y-3">
+                      <p className="text-slate-400 text-sm font-medium">No hay ficha clínica registrada para este animal.</p>
+                      <button 
+                        onClick={(e) => {
+                          const anim = animalSeleccionado;
+                          setAnimalSeleccionado(null);
+                          abrirModalEditar(anim, e);
+                        }}
+                        className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition"
+                      >
+                        + Agregar Ficha Médica y Certificado
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL FORMULARIO REGISTRO / EDICIÓN MASCOTA */}
       {modalFormAbierto && (
@@ -1208,7 +1373,7 @@ if (loading) return <div className="min-h-screen flex items-center justify-cente
                   <label className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2 block">ESPECIE</label>
                   <select 
                     value={formAnimal.especie}
-                    onChange={(e) => setFormAnimal({ ...formAnimal, especie: e.target.value })}
+                    onChange={(e) => setFormAnimal({ ...formAnimal, especie: e.target.value, vacunas: [] })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium text-slate-700 outline-none focus:border-slate-400 transition"
                   >
                     <option value="Perro">🐶 Perro</option>
@@ -1331,6 +1496,26 @@ if (loading) return <div className="min-h-screen flex items-center justify-cente
                     />
                     <span className="text-xs font-bold text-slate-700">Vacunas al día</span>
                   </label>
+                </div>
+
+                {/* CHECKLIST DE VACUNAS SEGÚN ESPECIE */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase mb-2 block">
+                    VACUNAS Y DESPARASITACIÓN ({formAnimal.especie})
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                    {(VACUNAS_POR_ESPECIE[formAnimal.especie] || VACUNAS_POR_ESPECIE.Perro).map((vacuna) => (
+                      <label key={vacuna} className="flex items-center gap-2.5 text-xs font-bold text-slate-700 cursor-pointer hover:text-slate-900">
+                        <input
+                          type="checkbox"
+                          checked={(formAnimal.vacunas || []).includes(vacuna)}
+                          onChange={() => handleToggleVacuna(vacuna)}
+                          className="w-4 h-4 rounded border-slate-300 text-pink-500 focus:ring-pink-500"
+                        />
+                        <span>{vacuna}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
