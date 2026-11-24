@@ -276,8 +276,18 @@ router.put('/:id', async (req, res) => {
                     const { email: correoDestino, nombre_completo: nombreAdoptante } = infoAdoptante.rows[0];
                     const { nombre_organizacion, email_contacto, color_principal } = infoRefugio.rows[0];
                     
-                    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173';
-                    const frontendUrl = `${frontendBase}/mis-postulaciones/${id}`;
+                    let frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173')
+                        .trim()
+                        .replace(/['"\r\n\s]/g, '')
+                        .replace(/\/+$/, '');
+
+                    if (!/^https?:\/\//i.test(frontendBase)) {
+                        frontendBase = `https://${frontendBase}`;
+                    }
+                    const frontendUrl = `${frontendBase}/mis-postulaciones/${encodeURIComponent(id)}`;
+                    console.log('URL limpia del correo:', JSON.stringify(frontendUrl));
+
+
                     const colorBoton = color_principal || '#F9A8D4';
 
                     await transporter.sendMail({
@@ -290,7 +300,7 @@ router.put('/:id', async (req, res) => {
                                 <h2>Hola, ${nombreAdoptante}</h2>
                                 <p><strong>${nombre_organizacion}</strong> ha actualizado tu postulación a la etapa: <strong>${estado_postulacion}</strong>.</p>
                                 <br>
-                                <a href="${frontendUrl}" style="padding: 12px 24px; background-color: ${colorBoton}; color: white; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
+                                <a href="${frontendUrl}" target="_blank" rel="noopener noreferrer" style="padding: 12px 24px; background-color: ${colorBoton}; color: white; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
                                     Ver estado de mi postulación
                                 </a>
                                 <br><br>
