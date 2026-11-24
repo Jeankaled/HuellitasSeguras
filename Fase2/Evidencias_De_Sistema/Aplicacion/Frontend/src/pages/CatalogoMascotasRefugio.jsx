@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Heart, ArrowLeft, ShieldCheck, Info, MapPin, CheckCircle, Phone, Mail, Building2, Sparkles } from 'lucide-react';
+import {
+  Search, Heart, ArrowLeft, ShieldCheck, Info, MapPin,
+  CheckCircle, Phone, Mail, Building2, Sparkles, Syringe,
+  FileText, XCircle, AlertCircle
+} from 'lucide-react';
 
 export default function CatalogoMascotasRefugio() {
   const navigate = useNavigate();
@@ -16,20 +20,45 @@ export default function CatalogoMascotasRefugio() {
   const [cargando, setCargando] = useState(true);
   const [cargandoFicha, setCargandoFicha] = useState(false);
 
-  // Cargar información de la fundación y sus mascotas conectando al backend de forma segura
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+  // Normaliza las vacunas sin importar si el backend manda array, JSON string o texto separado por comas
+  const obtenerListaVacunas = (vacunas) => {
+    if (!vacunas) return [];
+    if (Array.isArray(vacunas)) {
+      return vacunas
+        .map((v) => (typeof v === 'object' && v !== null ? v.nombre || v.vacuna || '' : String(v)))
+        .filter(Boolean);
+    }
+    if (typeof vacunas === 'string') {
+      const texto = vacunas.trim();
+      if (!texto || texto === '[]') return [];
+      try {
+        const parsed = JSON.parse(texto);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((v) => (typeof v === 'object' && v !== null ? v.nombre || v.vacuna || '' : String(v)))
+            .filter(Boolean);
+        }
+      } catch {
+        return texto.split(',').map((v) => v.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  };
+
+  // Cargar información de la fundación y sus mascotas
   useEffect(() => {
     if (!refugioId) return;
 
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-        // Usamos TU ruta especializada del backend
         const res = await fetch(`${apiBase}/animales/catalogo/${refugioId}`, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` 
+            'Authorization': `Bearer ${token}`
           }
         });
 
@@ -42,7 +71,6 @@ export default function CatalogoMascotasRefugio() {
 
         if (res.ok) {
           const data = await res.json();
-          // Tu backend ya te entrega todo empaquetado y listo para usar
           setRefugio(data.fundacion);
           setAnimales(data.animales || []);
         } else {
@@ -58,58 +86,82 @@ export default function CatalogoMascotasRefugio() {
     fetchData();
   }, [refugioId]);
 
+  const cerrarModal = () => {
+    setAnimalSeleccionado(null);
+    setFichaMedica(null);
+  };
+
   // Cargar ficha médica al abrir el modal de una mascota
   const abrirDetalles = async (animal) => {
     setAnimalSeleccionado(animal);
+    setFichaMedica(null);
     setCargandoFicha(true);
+
+    // Respaldo por si el endpoint del catálogo ya trae datos clínicos junto al animal
+    const tieneDatosEnAnimal =
+      animal.esterilizado !== undefined ||
+      animal.vacunas_al_dia !== undefined ||
+      (animal.vacunas && animal.vacunas.length > 0) ||
+      animal.observaciones ||
+      animal.tratamientos ||
+      animal.pdf_url;
+
+    const fichaDesdeAnimal = tieneDatosEnAnimal
+      ? {
+          esterilizado: animal.esterilizado,
+          vacunas_al_dia: animal.vacunas_al_dia,
+          vacunas: animal.vacunas,
+          observaciones: animal.observaciones || animal.tratamientos,
+          pdf_url: animal.pdf_url,
+        }
+      : null;
+
     try {
       const token = localStorage.getItem('token');
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const res = await fetch(`${apiBase}/fichas-clinicas/animal/${animal.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
       if (res.ok) {
         const data = await res.json();
-        setFichaMedica(data);
+        const ficha = Array.isArray(data)
+          ? data[0]
+          : (data.datos || data.ficha || data);
+        setFichaMedica(ficha || fichaDesdeAnimal);
       } else {
-        setFichaMedica(null);
+        setFichaMedica(fichaDesdeAnimal);
       }
     } catch {
-      setFichaMedica(null);
+      setFichaMedica(fichaDesdeAnimal);
     } finally {
       setCargandoFicha(false);
     }
   };
 
-  // Función para redirigir al formulario de adopción de forma segura
   const handleQuieroAdoptar = () => {
     if (!animalSeleccionado) return;
-    
-    // Soportar tanto 'id' como '_id' (por si tu BD es MongoDB)
     const idMascota = animalSeleccionado.id || animalSeleccionado._id;
-    
-    // Cerrar el modal antes de navegar
-    setAnimalSeleccionado(null);
-    
-    // Redirigir a la vista del formulario
+    cerrarModal();
     navigate(`/formulario-adopcion?mascotaId=${idMascota}&mascotaNombre=${animalSeleccionado.nombre}`);
   };
 
-  // 1. Filtrado dinámico mejorado y normalizado
   const animalesFiltrados = animales.filter(animal => {
     const coincideTexto = animal.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
                           animal.raza?.toLowerCase().includes(busqueda.toLowerCase());
-    
-    // Normalizamos las especies a minúsculas para evitar errores de coincidencia
     const especieAnimal = animal.especie?.trim().toLowerCase() || '';
     const especieFiltro = filtroEspecie === 'Todos' ? 'todos' : filtroEspecie.trim().toLowerCase();
-    
     const coincideEspecie = filtroEspecie === 'Todos' || especieAnimal === especieFiltro;
     return coincideTexto && coincideEspecie;
   });
 
   const colorPrimario = refugio?.color_principal || '#F472B6';
   const colorSecundario = refugio?.color_secundario || '#FBCFE8';
+
+  const listaVacunas = obtenerListaVacunas(fichaMedica?.vacunas);
+  const observacionesTexto = fichaMedica?.observaciones || fichaMedica?.tratamientos;
+  const pdfUrl = fichaMedica?.pdf_url
+    ? (fichaMedica.pdf_url.startsWith('http') ? fichaMedica.pdf_url : `${apiBase}${fichaMedica.pdf_url}`)
+    : null;
 
   return (
     <div className="min-h-screen bg-pink-50/30 font-sans text-slate-700 pb-16">
@@ -141,14 +193,13 @@ export default function CatalogoMascotasRefugio() {
         <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]"></div>
         <div className="max-w-5xl mx-auto relative z-10 flex flex-col md:flex-row items-center gap-4 md:gap-6 bg-white/90 backdrop-blur-md p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border border-white/40">
           
-          {/* Logo de la Fundación */}
           <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl md:rounded-3xl bg-white p-2 md:p-3 shadow-lg border-2 md:border-4 border-white flex items-center justify-center overflow-hidden shrink-0">
             {refugio?.logo_url || refugio?.logo ? (
               <img 
                 src={
                   (refugio.logo_url || refugio.logo).startsWith('http')
                     ? (refugio.logo_url || refugio.logo)
-                    : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${(refugio.logo_url || refugio.logo)}`
+                    : `${apiBase}${(refugio.logo_url || refugio.logo)}`
                 }
                 alt={refugio.nombre_organizacion}
                 className="w-full h-full object-contain"
@@ -158,7 +209,6 @@ export default function CatalogoMascotasRefugio() {
             )}
           </div>
 
-          {/* Información y Datos de Contacto */}
           <div className="flex-1 text-center md:text-left w-full">
             <div className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-1 rounded-full bg-pink-100 text-pink-600 font-extrabold text-[10px] md:text-xs mb-2">
               <Sparkles className="w-3 h-3 md:w-3.5 md:h-3.5" /> Refugio Aliado
@@ -198,7 +248,6 @@ export default function CatalogoMascotasRefugio() {
       {/* CONTENIDO PRINCIPAL: BÚSQUEDA Y MASCOTAS */}
       <main className="max-w-6xl mx-auto px-4 md:px-6">
         
-        {/* BARRA DE BÚSQUEDA Y FILTROS */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-8 bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm border border-pink-100">
           <div className="w-full md:w-auto">
             <h3 className="text-lg md:text-xl font-extrabold text-slate-800">Peluditos en Adopción 🐾</h3>
@@ -228,7 +277,6 @@ export default function CatalogoMascotasRefugio() {
           </div>
         </div>
 
-        {/* GRID DE MASCOTAS */}
         {cargando ? (
           <div className="text-center py-16 md:py-20 text-pink-400 font-bold text-base md:text-lg animate-pulse">
             Cargando el catálogo de mascotas... 🐾
@@ -247,14 +295,13 @@ export default function CatalogoMascotasRefugio() {
                 onClick={() => abrirDetalles(animal)}
                 className="bg-white rounded-2xl md:rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform md:hover:-translate-y-2 border border-pink-100 flex flex-col cursor-pointer group"
               >
-                {/* FOTO */}
                 <div className="relative h-56 md:h-64 overflow-hidden bg-pink-50">
                   {animal.foto_url || animal.foto ? (
                     <img 
                       src={
                         (animal.foto_url || animal.foto).startsWith('http') 
                           ? (animal.foto_url || animal.foto) 
-                          : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${animal.foto_url || animal.foto}`
+                          : `${apiBase}${animal.foto_url || animal.foto}`
                       } 
                       alt={animal.nombre}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
@@ -274,7 +321,6 @@ export default function CatalogoMascotasRefugio() {
                   </span>
                 </div>
 
-                {/* INFORMACIÓN DE LA MASCOTA */}
                 <div className="p-4 md:p-5 flex flex-col flex-1 justify-between">
                   <div>
                     <h3 className="text-lg md:text-xl font-extrabold text-slate-800">{animal.nombre}</h3>
@@ -312,7 +358,7 @@ export default function CatalogoMascotasRefugio() {
                   src={
                     (animalSeleccionado.foto_url || animalSeleccionado.foto).startsWith('http') 
                       ? (animalSeleccionado.foto_url || animalSeleccionado.foto) 
-                      : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${animalSeleccionado.foto_url || animalSeleccionado.foto}`
+                      : `${apiBase}${animalSeleccionado.foto_url || animalSeleccionado.foto}`
                   } 
                   alt={animalSeleccionado.nombre}
                   className="w-full h-full object-cover"
@@ -325,7 +371,7 @@ export default function CatalogoMascotasRefugio() {
               )}
 
               <button 
-                onClick={() => setAnimalSeleccionado(null)}
+                onClick={cerrarModal}
                 className="absolute top-3 right-3 md:top-4 md:right-4 w-8 h-8 md:w-10 md:h-10 bg-white/80 backdrop-blur-md rounded-full text-slate-700 font-extrabold flex items-center justify-center hover:bg-white shadow-lg transition text-xs md:text-base z-10"
               >
                 ✕
@@ -336,7 +382,7 @@ export default function CatalogoMascotasRefugio() {
               </div>
             </div>
 
-            {/* CUERPO DEL MODAL (CON SCROLL) */}
+            {/* CUERPO DEL MODAL */}
             <div className="p-4 md:p-6 lg:p-8 space-y-5 md:space-y-6 overflow-y-auto flex-1 pb-24 sm:pb-6">
               
               {/* Datos generales */}
@@ -369,34 +415,117 @@ export default function CatalogoMascotasRefugio() {
                 </p>
               </div>
 
-              {/* Ficha Médica */}
+              {/* Ficha Médica: Esterilización, Vacunas y Observaciones */}
               <div>
                 <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 md:gap-2 mb-2 text-sm md:text-base">
                   <ShieldCheck className="w-4 h-4 text-pink-500" /> Historial Veterinario
                 </h4>
+
                 {cargandoFicha ? (
-                  <p className="text-xs md:text-sm text-slate-400 animate-pulse">Cargando historial médico...</p>
-                ) : fichaMedica ? (
-                  <div className="bg-emerald-50/60 border border-emerald-100 p-3 md:p-4 rounded-xl md:rounded-2xl space-y-1.5 md:space-y-2">
-                    <div className="flex items-center gap-1.5 md:gap-2 text-emerald-700 font-bold text-xs md:text-sm mb-2">
-                      <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /> Ficha Médica Activa
-                    </div>
-                    <p className="text-[11px] md:text-xs text-slate-600"><strong>Vacunas:</strong> {fichaMedica.vacunas || 'Al día'}</p>
-                    <p className="text-[11px] md:text-xs text-slate-600"><strong>Esterilizado:</strong> {fichaMedica.esterilizado ? 'Sí' : 'No'}</p>
-                    <p className="text-[11px] md:text-xs text-slate-600"><strong>Observaciones:</strong> {fichaMedica.tratamientos || 'Ninguna'}</p>
-                  </div>
+                  <p className="text-xs md:text-sm text-slate-400 animate-pulse bg-slate-50 p-4 rounded-xl">
+                    Cargando historial médico...
+                  </p>
                 ) : (
-                  <div className="bg-slate-50 border border-slate-100 p-3 md:p-4 rounded-xl md:rounded-2xl text-center">
-                    <p className="text-[11px] md:text-xs text-slate-400 font-medium">No hay registros médicos detallados en este momento.</p>
+                  <div className="bg-slate-50 border border-slate-100 p-3.5 md:p-4 rounded-xl md:rounded-2xl space-y-3">
+                    
+                    {/* Estado de Esterilización y Vacunas al día */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {/* Esterilización */}
+                      <div className="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-500">Esterilizado</span>
+                        {fichaMedica?.esterilizado === true ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-extrabold">
+                            <CheckCircle className="w-3.5 h-3.5" /> Sí
+                          </span>
+                        ) : fichaMedica?.esterilizado === false ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-extrabold">
+                            <XCircle className="w-3.5 h-3.5" /> No
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
+                            <AlertCircle className="w-3.5 h-3.5" /> Sin registro
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Vacunas al día */}
+                      <div className="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-500">Vacunas al día</span>
+                        {fichaMedica?.vacunas_al_dia === true || listaVacunas.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-extrabold">
+                            <CheckCircle className="w-3.5 h-3.5" /> Sí
+                          </span>
+                        ) : fichaMedica?.vacunas_al_dia === false ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-extrabold">
+                            <XCircle className="w-3.5 h-3.5" /> Pendientes
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
+                            <AlertCircle className="w-3.5 h-3.5" /> Sin registro
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Detalle de vacunas aplicadas */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-100">
+                      <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5 mb-2">
+                        <Syringe className="w-3.5 h-3.5 text-pink-500" /> Vacunas registradas
+                      </span>
+                      {listaVacunas.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {listaVacunas.map((vacuna, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold"
+                            >
+                              {vacuna}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] md:text-xs text-slate-400">
+                          {fichaMedica?.vacunas_al_dia
+                            ? 'Vacunas al día (sin detalle individual cargado).'
+                            : 'No hay vacunas registradas todavía.'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Observaciones */}
+                    {observacionesTexto && (
+                      <div className="bg-white p-3 rounded-xl border border-slate-100">
+                        <span className="text-xs font-bold text-slate-600 block mb-1">Observaciones veterinarias</span>
+                        <p className="text-[11px] md:text-xs text-slate-600 leading-relaxed">{observacionesTexto}</p>
+                      </div>
+                    )}
+
+                    {/* Botón de Certificado PDF si existe */}
+                    {pdfUrl && (
+                      <a
+                        href={pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-600 font-bold text-xs transition"
+                      >
+                        <FileText className="w-4 h-4" /> Ver Certificado / Ficha PDF
+                      </a>
+                    )}
+
+                    {!fichaMedica && (
+                      <p className="text-[11px] text-slate-400 text-center pt-1">
+                        El refugio aún no ha cargado una ficha clínica detallada para esta mascota.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* PIE DEL MODAL (Fijo en móvil para que siempre esté visible) */}
+            {/* PIE DEL MODAL */}
             <div className="p-4 md:p-6 bg-white sm:bg-slate-50 border-t border-slate-100 flex flex-col-reverse sm:flex-row justify-end gap-2.5 md:gap-3 shrink-0 absolute sm:relative bottom-0 left-0 w-full">
               <button 
-                onClick={() => setAnimalSeleccionado(null)}
+                onClick={cerrarModal}
                 className="w-full sm:w-auto px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl bg-slate-100 sm:bg-slate-200 text-slate-700 font-bold text-xs md:text-sm hover:bg-slate-200 sm:hover:bg-slate-300 transition text-center"
               >
                 Cancelar
