@@ -38,7 +38,6 @@ const subirDocumentosKYC = upload.fields([
 
 const subirFotosHogar = upload.array('fotos_hogar', 5);
 
-
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -46,7 +45,6 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS
     }
 });
-
 
 router.get('/', async (req, res) => {
     try {
@@ -56,7 +54,8 @@ router.get('/', async (req, res) => {
                     a.nombre AS nombre_animal, 
                     a.especie AS especie_animal, 
                     a.foto AS foto_animal,
-                    r.nombre_organizacion AS nombre_refugio
+                    r.nombre_organizacion AS nombre_refugio,
+                    r.telefono AS telefono_refugio
                 FROM Postulaciones p
                 LEFT JOIN Animales a ON p.animal_id = a.id
                 LEFT JOIN Refugios r ON p.refugio_id = r.id
@@ -78,7 +77,8 @@ router.get('/', async (req, res) => {
                    ad.nombre_completo AS nombre_adoptante, 
                    ad.rut AS rut_adoptante,
                    ad.email AS correo_adoptante, 
-                   ad.telefono AS telefono_adoptante
+                   ad.telefono AS telefono_adoptante,
+                   ad.foto_perfil AS foto_adoptante
             FROM Postulaciones p
             LEFT JOIN Animales a ON p.animal_id = a.id
             LEFT JOIN Adoptantes ad ON p.adoptante_id = ad.id
@@ -117,7 +117,8 @@ router.get('/:id', async (req, res) => {
             query = `
                 SELECT p.*, 
                        a.nombre AS nombre_animal, a.especie AS especie_animal, a.foto AS foto_animal,
-                       r.nombre_organizacion AS nombre_refugio
+                       r.nombre_organizacion AS nombre_refugio,
+                       r.telefono AS telefono_refugio
                 FROM Postulaciones p
                 LEFT JOIN Animales a ON p.animal_id = a.id
                 LEFT JOIN Refugios r ON p.refugio_id = r.id
@@ -128,10 +129,17 @@ router.get('/:id', async (req, res) => {
             query = `
                 SELECT p.*, 
                        a.nombre AS nombre_animal, a.especie AS especie_animal, a.foto AS foto_animal,
-                       ad.nombre_completo AS nombre_adoptante, ad.rut AS rut_adoptante,
-                       ad.email AS correo_adoptante, ad.telefono AS telefono_adoptante, ad.direccion AS direccion_adoptante
+                       r.nombre_organizacion AS nombre_refugio,
+                       r.telefono AS telefono_refugio,
+                       ad.nombre_completo AS nombre_adoptante, 
+                       ad.rut AS rut_adoptante,
+                       ad.email AS correo_adoptante,
+                       ad.telefono AS telefono_adoptante, 
+                       ad.direccion AS direccion_adoptante,
+                       ad.foto_perfil AS foto_adoptante
                 FROM Postulaciones p
                 LEFT JOIN Animales a ON p.animal_id = a.id
+                LEFT JOIN Refugios r ON p.refugio_id = r.id
                 LEFT JOIN Adoptantes ad ON p.adoptante_id = ad.id
                 WHERE p.id = $1 AND p.refugio_id = $2;
             `;
@@ -144,14 +152,20 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ error: "Postulación no encontrada o sin permisos para verla" });
         }
 
-        const historial = await db.query(
-            'SELECT * FROM Historial_Postulaciones WHERE postulacion_id = $1 ORDER BY fecha DESC',
-            [id]
-        );
+        const [historial, citaQuery] = await Promise.all([
+            db.query('SELECT * FROM Historial_Postulaciones WHERE postulacion_id = $1 ORDER BY fecha DESC', [id]),
+            db.query('SELECT * FROM Horarios_Entrevista WHERE postulacion_id = $1 LIMIT 1', [id])
+        ]);
+
+        const citaAgendada = citaQuery.rows[0] || null;
 
         res.json({
             mensaje: "Detalle de postulación obtenido",
-            datos: resultado.rows[0],
+            datos: {
+                ...resultado.rows[0],
+                cita_agendada: citaAgendada
+            },
+            cita_agendada: citaAgendada,
             historial: historial.rows
         });
     } catch (error) {
@@ -193,6 +207,45 @@ router.post('/', async (req, res) => {
     }
 });
 
+router.post('/:id/fotos-hogar', subirFotosHogar, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const adoptante_id = req.usuario.id;
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: "Debes adjuntar al menos una foto del hogar." });
+        }
+
+        const urlsFotos = req.files.map(file => `/uploads/${file.filename}`);
+
+        const resultado = await db.query(
+            `UPDATE Postulaciones 
+             SET foto_domicilio_url = $1
+             WHERE id = $2 AND adoptante_id = $3
+             RETURNING *`,
+            [JSON.stringify(urlsFotos), id, adoptante_id]
+        );
+
+        if (resultado.rowCount === 0) {
+            return res.status(404).json({ error: "Postulación no encontrada o no te pertenece" });
+        }
+
+        await db.query(
+            'INSERT INTO Historial_Postulaciones (postulacion_id, accion, detalle) VALUES ($1, $2, $3)',
+            [id, 'Fotos del hogar subidas', `El adoptante adjuntó ${urlsFotos.length} fotografía(s) de su domicilio.`]
+        );
+
+        res.json({
+            mensaje: "Fotos del hogar subidas con éxito",
+            fotos_hogar: urlsFotos,
+            datos: resultado.rows[0]
+        });
+    } catch (error) {
+        console.error("Error al subir fotos del hogar:", error);
+        res.status(500).json({ error: "Error interno al subir las fotos del hogar" });
+    }
+});
+
 router.post('/:id/documentos', subirDocumentosKYC, async (req, res) => {
     try {
         const { id } = req.params;
@@ -201,12 +254,7 @@ router.post('/:id/documentos', subirDocumentosKYC, async (req, res) => {
 
         const urlCedula = req.files?.['carnet'] ? `${baseUrl}/uploads/${req.files['carnet'][0].filename}` : null;
         const urlSueldo = req.files?.['sueldo'] ? `${baseUrl}/uploads/${req.files['sueldo'][0].filename}` : null;
-
-        let urlDomicilio = null;
-        if (req.files?.['domicilio']?.length) {
-            const urls = req.files['domicilio'].map((f) => `${baseUrl}/uploads/${f.filename}`);
-            urlDomicilio = urls.length === 1 ? urls[0] : JSON.stringify(urls);
-        }
+        const urlDomicilio = req.files?.['domicilio'] ? `${baseUrl}/uploads/${req.files['domicilio'][0].filename}` : null;
 
         if (!urlCedula && !urlSueldo && !urlDomicilio) {
             return res.status(400).json({ error: "Debes adjuntar al menos un documento válido." });
@@ -239,83 +287,108 @@ router.post('/:id/documentos', subirDocumentosKYC, async (req, res) => {
     }
 });
 
-router.post('/:id/fotos-hogar', subirFotosHogar, async (req, res) => {
+router.post('/:id/agendar', async (req, res) => {
     try {
         const { id } = req.params;
+        const { horario_id } = req.body;
         const adoptante_id = req.usuario.id;
-        const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
 
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ error: "Debes adjuntar al menos una foto del hogar." });
+        if (!horario_id) {
+            return res.status(400).json({ error: "Debes seleccionar un horario válido (horario_id)." });
         }
 
-        const actual = await db.query(
-            'SELECT foto_domicilio_url FROM Postulaciones WHERE id = $1 AND adoptante_id = $2',
+        const postulacionQuery = await db.query(
+            'SELECT id, refugio_id FROM Postulaciones WHERE id = $1 AND adoptante_id = $2',
             [id, adoptante_id]
         );
 
-        if (actual.rowCount === 0) {
+        if (postulacionQuery.rowCount === 0) {
             return res.status(404).json({ error: "Postulación no encontrada o no te pertenece" });
         }
 
-        let domicilioPrevio = [];
-        const rawDomicilio = actual.rows[0].foto_domicilio_url;
-        if (rawDomicilio) {
-            if (Array.isArray(rawDomicilio)) {
-                domicilioPrevio = rawDomicilio;
-            } else if (typeof rawDomicilio === 'string') {
-                try {
-                    const parsed = JSON.parse(rawDomicilio);
-                    domicilioPrevio = Array.isArray(parsed) ? parsed : [rawDomicilio];
-                } catch {
-                    domicilioPrevio = [rawDomicilio];
-                }
-            }
+        const refugio_id = postulacionQuery.rows[0].refugio_id;
+
+        const verificarNuevo = await db.query(
+            'SELECT id FROM Horarios_Entrevista WHERE id = $1 AND refugio_id = $2 AND disponible = TRUE',
+            [horario_id, refugio_id]
+        );
+
+        if (verificarNuevo.rowCount === 0) {
+            return res.status(409).json({ error: "El horario seleccionado ya no está disponible." });
         }
 
-        const nuevasUrls = req.files.map((file) => `${baseUrl}/uploads/${file.filename}`);
-        const domicilioActualizado = [...domicilioPrevio, ...nuevasUrls].slice(-5);
-
-        const resultado = await db.query(
-            `UPDATE Postulaciones
-             SET foto_domicilio_url = $1
-             WHERE id = $2 AND adoptante_id = $3
-             RETURNING *`,
-            [JSON.stringify(domicilioActualizado), id, adoptante_id]
+        await db.query(
+            'UPDATE Horarios_Entrevista SET disponible = TRUE, postulacion_id = NULL WHERE postulacion_id = $1',
+            [id]
         );
+
+        const reserva = await db.query(
+            `UPDATE Horarios_Entrevista 
+             SET disponible = FALSE, postulacion_id = $1 
+             WHERE id = $2 AND refugio_id = $3 AND disponible = TRUE 
+             RETURNING *`,
+            [id, horario_id, refugio_id]
+        );
+
+        if (reserva.rowCount === 0) {
+            return res.status(409).json({ error: "El horario seleccionado ya no está disponible." });
+        }
+
+        const citaConfirmada = reserva.rows[0];
 
         await db.query(
             'INSERT INTO Historial_Postulaciones (postulacion_id, accion, detalle) VALUES ($1, $2, $3)',
-            [id, 'Fotos del hogar subidas', `El adoptante subió ${nuevasUrls.length} foto(s) del hogar en evaluación.`]
+            [id, 'Videollamada agendada', `Entrevista reservada para el ${citaConfirmada.fecha} a las ${citaConfirmada.hora}.`]
         );
 
         res.json({
-            mensaje: "Fotos del hogar guardadas con éxito",
-            fotos_hogar: domicilioActualizado,
-            datos: resultado.rows[0]
+            mensaje: "Videollamada agendada con éxito",
+            cita: citaConfirmada,
+            datos: citaConfirmada
         });
     } catch (error) {
-        console.error("Error al subir fotos del hogar:", error);
-        res.status(500).json({ error: "Error interno al subir las fotos del hogar" });
+        console.error("Error al agendar videollamada:", error);
+        res.status(500).json({ error: "Error interno al agendar la videollamada" });
     }
 });
 
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { estado_postulacion, detalle_historial } = req.body;
+        const {
+            estado_postulacion,
+            detalle_historial,
+            entrevista_realizada,
+            visita_realizada,
+            aprobacion_comite
+        } = req.body;
         const refugio_id = req.usuario.refugio_id;
 
-        if (!estado_postulacion) {
-            return res.status(400).json({ error: "Debes indicar el nuevo estado_postulacion" });
+        if (
+            !estado_postulacion &&
+            typeof entrevista_realizada !== 'boolean' &&
+            typeof visita_realizada !== 'boolean' &&
+            typeof aprobacion_comite !== 'boolean'
+        ) {
+            return res.status(400).json({ error: "Debes indicar un estado o campo de evaluación a actualizar" });
         }
 
         const postulacionActualizada = await db.query(
             `UPDATE Postulaciones 
-             SET estado_postulacion = $1 
-             WHERE id = $2 AND refugio_id = $3 
+             SET estado_postulacion = COALESCE($1, estado_postulacion),
+                 entrevista_realizada = COALESCE($2, entrevista_realizada),
+                 visita_realizada = COALESCE($3, visita_realizada),
+                 aprobacion_comite = COALESCE($4, aprobacion_comite)
+             WHERE id = $5 AND refugio_id = $6 
              RETURNING *`,
-            [estado_postulacion, id, refugio_id]
+            [
+                estado_postulacion ?? null,
+                typeof entrevista_realizada === 'boolean' ? entrevista_realizada : null,
+                typeof visita_realizada === 'boolean' ? visita_realizada : null,
+                typeof aprobacion_comite === 'boolean' ? aprobacion_comite : null,
+                id,
+                refugio_id
+            ]
         );
 
         if (postulacionActualizada.rowCount === 0) {
@@ -333,18 +406,20 @@ router.put('/:id', async (req, res) => {
             );
         }
 
-        await db.query(
-            'INSERT INTO Historial_Postulaciones (postulacion_id, accion, detalle) VALUES ($1, $2, $3)',
-            [
-                id,
-                `Cambio a: ${estado_postulacion}`,
-                detalle_historial || `La fundación actualizó el estado de la postulación a "${estado_postulacion}".`
-            ]
-        );
+        if (estado_postulacion) {
+            await db.query(
+                'INSERT INTO Historial_Postulaciones (postulacion_id, accion, detalle) VALUES ($1, $2, $3)',
+                [
+                    id,
+                    `Cambio a: ${estado_postulacion}`,
+                    detalle_historial || `La fundación actualizó el estado de la postulación a "${estado_postulacion}".`
+                ]
+            );
+        }
 
         let correoEnviado = false;
         try {
-            if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+            if (estado_postulacion && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
                 const [infoAdoptante, infoRefugio, infoAnimal] = await Promise.all([
                     db.query('SELECT email, nombre_completo FROM Adoptantes WHERE id = $1', [postulacion.adoptante_id]),
                     db.query('SELECT nombre_organizacion, email_contacto, color_principal FROM Refugios WHERE id = $1', [refugio_id]),
@@ -392,7 +467,7 @@ router.put('/:id', async (req, res) => {
         res.json({
             mensaje: correoEnviado
                 ? "Estado actualizado y correo enviado al adoptante"
-                : "Estado actualizado (correo no enviado, revisa configuración SMTP)",
+                : "Postulación actualizada con éxito",
             datos: postulacion
         });
     } catch (error) {
