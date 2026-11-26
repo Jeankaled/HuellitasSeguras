@@ -6,7 +6,6 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const { generarCorreoPostulacion } = require('../utils/emailPostulaciones');
 
-
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'uploads/'),
     filename: (req, file, cb) => {
@@ -36,6 +35,8 @@ const subirDocumentosKYC = upload.fields([
     { name: 'sueldo', maxCount: 1 },
     { name: 'domicilio', maxCount: 1 }
 ]);
+
+const subirFotosHogar = upload.array('fotos_hogar', 5);
 
 
 const transporter = nodemailer.createTransport({
@@ -200,7 +201,12 @@ router.post('/:id/documentos', subirDocumentosKYC, async (req, res) => {
 
         const urlCedula = req.files?.['carnet'] ? `${baseUrl}/uploads/${req.files['carnet'][0].filename}` : null;
         const urlSueldo = req.files?.['sueldo'] ? `${baseUrl}/uploads/${req.files['sueldo'][0].filename}` : null;
-        const urlDomicilio = req.files?.['domicilio'] ? `${baseUrl}/uploads/${req.files['domicilio'][0].filename}` : null;
+
+        let urlDomicilio = null;
+        if (req.files?.['domicilio']?.length) {
+            const urls = req.files['domicilio'].map((f) => `${baseUrl}/uploads/${f.filename}`);
+            urlDomicilio = urls.length === 1 ? urls[0] : JSON.stringify(urls);
+        }
 
         if (!urlCedula && !urlSueldo && !urlDomicilio) {
             return res.status(400).json({ error: "Debes adjuntar al menos un documento válido." });
@@ -230,6 +236,67 @@ router.post('/:id/documentos', subirDocumentosKYC, async (req, res) => {
     } catch (error) {
         console.error("Error al subir documentos:", error);
         res.status(500).json({ error: "Error interno al subir los documentos" });
+    }
+});
+
+router.post('/:id/fotos-hogar', subirFotosHogar, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const adoptante_id = req.usuario.id;
+        const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: "Debes adjuntar al menos una foto del hogar." });
+        }
+
+        const actual = await db.query(
+            'SELECT foto_domicilio_url FROM Postulaciones WHERE id = $1 AND adoptante_id = $2',
+            [id, adoptante_id]
+        );
+
+        if (actual.rowCount === 0) {
+            return res.status(404).json({ error: "Postulación no encontrada o no te pertenece" });
+        }
+
+        let domicilioPrevio = [];
+        const rawDomicilio = actual.rows[0].foto_domicilio_url;
+        if (rawDomicilio) {
+            if (Array.isArray(rawDomicilio)) {
+                domicilioPrevio = rawDomicilio;
+            } else if (typeof rawDomicilio === 'string') {
+                try {
+                    const parsed = JSON.parse(rawDomicilio);
+                    domicilioPrevio = Array.isArray(parsed) ? parsed : [rawDomicilio];
+                } catch {
+                    domicilioPrevio = [rawDomicilio];
+                }
+            }
+        }
+
+        const nuevasUrls = req.files.map((file) => `${baseUrl}/uploads/${file.filename}`);
+        const domicilioActualizado = [...domicilioPrevio, ...nuevasUrls].slice(-5);
+
+        const resultado = await db.query(
+            `UPDATE Postulaciones
+             SET foto_domicilio_url = $1
+             WHERE id = $2 AND adoptante_id = $3
+             RETURNING *`,
+            [JSON.stringify(domicilioActualizado), id, adoptante_id]
+        );
+
+        await db.query(
+            'INSERT INTO Historial_Postulaciones (postulacion_id, accion, detalle) VALUES ($1, $2, $3)',
+            [id, 'Fotos del hogar subidas', `El adoptante subió ${nuevasUrls.length} foto(s) del hogar en evaluación.`]
+        );
+
+        res.json({
+            mensaje: "Fotos del hogar guardadas con éxito",
+            fotos_hogar: domicilioActualizado,
+            datos: resultado.rows[0]
+        });
+    } catch (error) {
+        console.error("Error al subir fotos del hogar:", error);
+        res.status(500).json({ error: "Error interno al subir las fotos del hogar" });
     }
 });
 
