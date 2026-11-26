@@ -41,6 +41,7 @@ const rutasRefugios = require('./routes/refugios');
 const rutasUsuarios = require('./routes/usuarios');
 const rutasPostulaciones = require('./routes/postulaciones');
 const rutasReportes = require('./routes/reportes');
+const rutasHorarios = require('./routes/horarios');
 
 // 3. CONECTAR ENDPOINTS (RUTAS)
 
@@ -64,7 +65,7 @@ app.use('/animales', verificarToken, rutasAnimales);
 app.use('/usuarios', verificarToken, rutasUsuarios);
 app.use('/postulaciones', verificarToken, rutasPostulaciones);
 app.use('/reportes-adoptantes',   verificarToken, rutasReportes);
-
+app.use('/horarios', verificarToken, rutasHorarios);
 
 
 app.listen(PORT, () => {

@@ -8,11 +8,10 @@ export default function DirectorioAdoptantes({ onLogout }) {
   const [adoptantes, setAdoptantes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   // Estado para la barra de búsqueda
   const [busqueda, setBusqueda] = useState('');
-  
-  // 1. Leemos localStorage directo en el useState (evita setState síncrono en el efecto)
+
   const [tema] = useState(() => {
     try {
       const usuarioGuardado = JSON.parse(localStorage.getItem('usuario') || '{}');
@@ -45,7 +44,6 @@ export default function DirectorioAdoptantes({ onLogout }) {
   const [modalHistorialAbierto, setModalHistorialAbierto] = useState(false);
   const [adoptanteHistorial, setAdoptanteHistorial] = useState(null);
 
-  // 2. Función limpia: TODOS los setState ocurren después del await
   const obtenerDatos = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -53,12 +51,17 @@ export default function DirectorioAdoptantes({ onLogout }) {
       return;
     }
 
+    setLoading(true);
+    setError('');
+
     try {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
       const [resAdoptantes, resReportes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL}/adoptantes`, {
+        fetch(`${apiBase}/adoptantes`, {
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${import.meta.env.VITE_API_URL}/reportes-adoptantes`, {
+        fetch(`${apiBase}/reportes-adoptantes`, {
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         }).catch(() => ({ ok: false }))
       ]);
@@ -69,12 +72,31 @@ export default function DirectorioAdoptantes({ onLogout }) {
         return;
       }
 
-      const dataAdoptantes = await resAdoptantes.json();
-      const listaAdoptantes = Array.isArray(dataAdoptantes) ? dataAdoptantes : (dataAdoptantes.datos || dataAdoptantes.data || []);
-      
+      // Parseo seguro para evitar "Unexpected token '<'" si llega HTML (404 / 500)
+      const textoAdoptantes = await resAdoptantes.text();
+      let dataAdoptantes = {};
+      try {
+        dataAdoptantes = textoAdoptantes ? JSON.parse(textoAdoptantes) : {};
+      } catch {
+        throw new Error('No se pudo conectar correctamente con el servicio de adoptantes.');
+      }
+
+      if (!resAdoptantes.ok) {
+        throw new Error(dataAdoptantes.error || 'Ocurrió un error al cargar el directorio de adoptantes.');
+      }
+
+      const listaAdoptantes = Array.isArray(dataAdoptantes)
+        ? dataAdoptantes
+        : (dataAdoptantes.datos || dataAdoptantes.data || []);
+
       let listaReportes = [];
       if (resReportes && resReportes.ok) {
-        listaReportes = await resReportes.json();
+        try {
+          const dataRep = await resReportes.json();
+          listaReportes = Array.isArray(dataRep) ? dataRep : (dataRep.datos || []);
+        } catch {
+          listaReportes = [];
+        }
       }
 
       const adoptantesConReportes = listaAdoptantes.map(adoptante => {
@@ -84,22 +106,15 @@ export default function DirectorioAdoptantes({ onLogout }) {
 
       setAdoptantes(adoptantesConReportes);
     } catch (err) {
-      setError(err.message);
+      console.error('Error al cargar directorio:', err);
+      setError(err.message || 'Hubo un problema al cargar la lista de adoptantes.');
     } finally {
       setLoading(false);
     }
   }, [navigate]);
 
-  // 3. Ejecución mediante función asíncrona interna para cumplir con ESLint
   useEffect(() => {
-    let montado = true;
-    const iniciarCarga = async () => {
-      if (montado) {
-        await obtenerDatos();
-      }
-    };
-    iniciarCarga();
-    return () => { montado = false; };
+    obtenerDatos();
   }, [obtenerDatos]);
 
   // Filtrado dinámico
@@ -137,7 +152,8 @@ export default function DirectorioAdoptantes({ onLogout }) {
 
     try {
       const token = localStorage.getItem('token');
-      const respuesta = await fetch(`${import.meta.env.VITE_API_URL}/reportes-adoptantes`, {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const respuesta = await fetch(`${apiBase}/reportes-adoptantes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +172,7 @@ export default function DirectorioAdoptantes({ onLogout }) {
 
       toast.success('⚠️ Alerta enviada con éxito. Las demás fundaciones han sido notificadas.', { id: toastId });
       setModalAbierto(false);
-      obtenerDatos(); // Recargar para mostrar el nuevo badge inmediatamente
+      obtenerDatos();
     } catch (err) {
       console.error(err);
       toast.error('Error al intentar registrar el reporte.', { id: toastId });
@@ -165,17 +181,47 @@ export default function DirectorioAdoptantes({ onLogout }) {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Cargando directorio... 🐾</div>;
-  if (error) return <div className="min-h-screen flex items-center justify-center bg-red-50 text-red-500 font-bold">{error}</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center font-bold text-slate-500">
+        Cargando directorio... 🐾
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md w-full p-6 bg-red-50 border border-red-200 rounded-3xl text-center shadow-sm">
+          <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <p className="text-red-700 font-extrabold text-base mb-1">No se pudo cargar el directorio</p>
+          <p className="text-red-600 text-sm mb-5">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => navigate('/panel')}
+              className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-100 transition"
+            >
+              Volver al panel
+            </button>
+            <button
+              onClick={obtenerDatos}
+              className="px-4 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-hidden font-sans text-slate-700">
-      
       {/* SIDEBAR / BOTTOM NAV EN MÓVIL */}
       <aside className="fixed md:static bottom-0 w-full md:w-20 h-16 md:h-screen bg-white flex md:flex-col items-center justify-around md:justify-start py-2 md:py-8 md:gap-8 border-t md:border-t-0 md:border-r border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-sm z-40 shrink-0">
-        <div 
+        <div
           onClick={() => navigate('/panel', { state: { vista: 'inicio' } })}
-          className="hidden md:flex w-12 h-12 rounded-2xl items-center justify-center text-white shadow-md transition cursor-pointer hover:opacity-90 hover:scale-105" 
+          className="hidden md:flex w-12 h-12 rounded-2xl items-center justify-center text-white shadow-md transition cursor-pointer hover:opacity-90 hover:scale-105"
           style={{ backgroundColor: tema.principal }}
           title="Ir a Inicio"
         >
@@ -183,43 +229,43 @@ export default function DirectorioAdoptantes({ onLogout }) {
         </div>
 
         <nav className="flex md:flex-col flex-row items-center justify-around md:justify-start w-full h-full gap-2 md:gap-6 text-slate-400">
-          <button 
+          <button
             onClick={() => navigate('/panel', { state: { vista: 'bandeja' } })}
             className="p-3 bg-white rounded-2xl transition shadow-sm hover:bg-slate-100 hover:text-slate-600 md:hover:scale-105"
             title="Ir a Bandeja"
           >
-            <svg className="w-6 h-6 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => navigate('/panel', { state: { vista: 'catalogo' } })}
             className="p-3 bg-white rounded-2xl transition shadow-sm hover:bg-slate-100 hover:text-slate-600 md:hover:scale-105"
             title="Ir a Catálogo"
           >
-            <Cat className="w-6 h-6 md:w-6 md:h-6" />
+            <Cat className="w-6 h-6" />
           </button>
 
-          <button 
+          <button
             className="p-3 rounded-2xl transition shadow-sm text-white md:hover:scale-105"
             style={{ backgroundColor: tema.secundario }}
             title="Directorio de Adoptantes (Activo)"
           >
-            <svg className="w-6 h-6 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => navigate('/ajustes-perfil')}
             className="p-3 bg-white rounded-2xl transition shadow-sm hover:bg-slate-100 hover:text-slate-600 md:hover:scale-105"
             title="Ajustes de la Fundación"
           >
-            <svg className="w-6 h-6 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
             </svg>
           </button>
 
           <div className="md:mt-auto md:pt-8 flex">
-            <button 
+            <button
               onClick={() => {
                 if (typeof onLogout === 'function') onLogout();
                 else {
@@ -227,10 +273,10 @@ export default function DirectorioAdoptantes({ onLogout }) {
                   navigate('/login');
                 }
               }}
-              title="Cerrar sesión" 
+              title="Cerrar sesión"
               className="p-3 bg-white text-red-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition border border-red-100 shadow-sm md:hover:scale-105"
             >
-              <svg className="w-6 h-6 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
             </button>
           </div>
         </nav>
@@ -273,7 +319,7 @@ export default function DirectorioAdoptantes({ onLogout }) {
             </div>
             <h2 className="text-xl font-extrabold text-slate-800">Directorio General</h2>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -297,8 +343,7 @@ export default function DirectorioAdoptantes({ onLogout }) {
                   adoptantesFiltrados.map((persona) => (
                     <tr key={persona.id || persona.rut} className="border-b border-slate-50 hover:bg-slate-50 transition cursor-default">
                       <td className="p-4 font-medium text-slate-500">{persona.rut || 'N/A'}</td>
-                      
-                      {/* Celda de Nombre Completo y BADGE de Reportes */}
+
                       <td className="p-4">
                         <div className="font-bold text-slate-700">{persona.nombre_completo}</div>
                         {persona.reportes && persona.reportes.length > 0 && (
@@ -312,11 +357,11 @@ export default function DirectorioAdoptantes({ onLogout }) {
                           </button>
                         )}
                       </td>
-                      
+
                       <td className="p-4 text-slate-500 text-sm">{persona.email}</td>
                       <td className="p-4 text-slate-500 text-sm">{persona.telefono || 'No registrado'}</td>
                       <td className="p-4 text-slate-500 text-sm truncate max-w-[150px]">{persona.direccion || 'No registrada'}</td>
-                      
+
                       <td className="p-4 text-center">
                         <button
                           onClick={() => abrirModalReporte(persona)}
@@ -336,11 +381,11 @@ export default function DirectorioAdoptantes({ onLogout }) {
         </div>
       </main>
 
-      {/* 🚨 MODAL DE CREAR REPORTE DE IRRESPONSABILIDAD */}
+      {/* MODAL DE CREAR REPORTE DE IRRESPONSABILIDAD */}
       {modalAbierto && adoptanteSeleccionado && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative">
-            <button 
+            <button
               onClick={() => setModalAbierto(false)}
               className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
             >
@@ -366,8 +411,8 @@ export default function DirectorioAdoptantes({ onLogout }) {
             <form onSubmit={handleEnviarReporte} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">Motivo / Tipo de Falta</label>
-                <select 
-                  value={tipoFalta} 
+                <select
+                  value={tipoFalta}
                   onChange={(e) => setTipoFalta(e.target.value)}
                   className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-red-400 bg-white"
                 >
@@ -381,7 +426,7 @@ export default function DirectorioAdoptantes({ onLogout }) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">Descripción detallada de la incidencia</label>
-                <textarea 
+                <textarea
                   rows="4"
                   value={descripcionFalta}
                   onChange={(e) => setDescripcionFalta(e.target.value)}
@@ -412,11 +457,11 @@ export default function DirectorioAdoptantes({ onLogout }) {
         </div>
       )}
 
-      {/* ⚠️ MODAL PARA VER HISTORIAL DE REPORTES DE UN ADOPTANTE */}
+      {/* MODAL PARA VER HISTORIAL DE REPORTES DE UN ADOPTANTE */}
       {modalHistorialAbierto && adoptanteHistorial && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative max-h-[90vh] flex flex-col">
-            <button 
+            <button
               onClick={() => setModalHistorialAbierto(false)}
               className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
             >
@@ -463,7 +508,6 @@ export default function DirectorioAdoptantes({ onLogout }) {
           </div>
         </div>
       )}
-
     </div>
   );
 }
