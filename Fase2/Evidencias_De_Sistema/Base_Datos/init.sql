@@ -47,18 +47,21 @@ CREATE TABLE Adoptantes (
   telefono VARCHAR(20),
   direccion VARCHAR(255),
   estado_verificacion_contacto BOOLEAN DEFAULT FALSE,
-  preferencia_mascota VARCHAR(50)
+  preferencia_mascota VARCHAR(50),
+  foto_perfil VARCHAR(255)
 );
 
 CREATE TABLE Fichas_Clinicas (
   id SERIAL PRIMARY KEY,
-  animal_id INTEGER REFERENCES Animales(id) ON DELETE CASCADE,
+  animal_id INTEGER UNIQUE REFERENCES Animales(id) ON DELETE CASCADE,
   refugio_id INTEGER REFERENCES Refugios(id) ON DELETE CASCADE,
   esterilizado BOOLEAN DEFAULT FALSE,
   vacunas_al_dia BOOLEAN DEFAULT FALSE,
+  vacunas JSONB DEFAULT '[]'::jsonb,
   peso_kg DECIMAL(5,2),
   diagnostico_ingreso TEXT,
   observaciones_medicas TEXT,
+  pdf_url VARCHAR(255),
   fecha_ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -83,8 +86,11 @@ CREATE TABLE Postulaciones (
   fecha_postulacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   estado_postulacion VARCHAR(50) DEFAULT 'En Revisión',
   foto_cedula_url VARCHAR(255),
-  foto_domicilio_url VARCHAR(255),
+  foto_domicilio_url text,
   comprobante_ingresos_url VARCHAR(255),
+  entrevista_realizada BOOLEAN DEFAULT FALSE,
+  visita_realizada BOOLEAN DEFAULT FALSE,
+  aprobacion_comite BOOLEAN DEFAULT FALSE,
   acepta_tratamiento_datos BOOLEAN NOT NULL DEFAULT FALSE,
   tipo_vivienda VARCHAR(100),
   composicion_hogar VARCHAR(255),
@@ -108,4 +114,14 @@ CREATE TABLE Historial_Postulaciones (
   accion VARCHAR(255) NOT NULL,
   detalle TEXT,
   fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE Horarios_Entrevista (
+  id SERIAL PRIMARY KEY,
+  refugio_id INTEGER NOT NULL REFERENCES Refugios(id) ON DELETE CASCADE,
+  fecha VARCHAR(10) NOT NULL, -- Formato YYYY-MM-DD (evita desfases de zona horaria UTC)
+  hora VARCHAR(10) NOT NULL,  -- Formato HH:MM (ej. 15:00)
+  disponible BOOLEAN DEFAULT TRUE,
+  postulacion_id INTEGER UNIQUE REFERENCES Postulaciones(id) ON DELETE SET NULL,
+  link_videollamada VARCHAR(255)
 );

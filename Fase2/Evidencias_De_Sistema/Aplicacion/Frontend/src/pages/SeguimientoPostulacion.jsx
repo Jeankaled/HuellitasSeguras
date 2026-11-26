@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -10,7 +10,13 @@ import {
   AlertCircle, 
   Calendar,
   Sparkles,
-  PawPrint
+  PawPrint,
+  Camera,
+  Home,
+  ShieldCheck,
+  Upload,
+  X,
+  Loader2
 } from 'lucide-react';
 
 // 🎨 Paletas disponibles (se asignan automáticamente a cualquier fundación)
@@ -169,6 +175,21 @@ const obtenerTemaFundacion = (nombreFundacion = '') => {
   return LISTA_TEMAS[indice];
 };
 
+// Helper seguro para leer fotos_hogar venga como array o string JSON desde la BD
+const parsearFotosHogar = (valor) => {
+  if (!valor) return [];
+  if (Array.isArray(valor)) return valor;
+  if (typeof valor === 'string') {
+    try {
+      const parsed = JSON.parse(valor);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [valor];
+    }
+  }
+  return [];
+};
+
 export default function SeguimientoPostulacion() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -177,6 +198,21 @@ export default function SeguimientoPostulacion() {
   const [misPostulaciones, setMisPostulaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+
+  // Estados para subida de fotos del hogar (Etapa 2)
+  const [archivosHogar, setArchivosHogar] = useState([]);
+  const [previewsHogar, setPreviewsHogar] = useState([]);
+  const [subiendoFotos, setSubiendoFotos] = useState(false);
+  const [mensajeFotos, setMensajeFotos] = useState(null);
+
+  // Estados para subida de documentos KYC (Etapa 3)
+  const [archivosDoc, setArchivosDoc] = useState({
+    carnet: null,
+    sueldo: null,
+    domicilio: [],
+  });
+  const [subiendoDocs, setSubiendoDocs] = useState(false);
+  const [mensajeDocs, setMensajeDocs] = useState(null);
 
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -222,10 +258,10 @@ export default function SeguimientoPostulacion() {
   };
 
   // Helper para armar la URL de la foto
-  const formatearFoto = (foto) => {
+  const formatearFoto = useCallback((foto) => {
     if (!foto) return null;
     return foto.startsWith('http') ? foto : `${apiBase}/uploads/${foto}`;
-  };
+  }, [apiBase]);
 
   // 1️⃣ Cargar TODAS las postulaciones del adoptante para mostrar el selector superior
   useEffect(() => {
@@ -251,27 +287,28 @@ export default function SeguimientoPostulacion() {
     cargarTodasLasPostulaciones();
   }, [apiBase]);
 
-  // 2️⃣ Cargar el detalle de la postulación seleccionada (conexión original intacta)
+  const idInvalido = !id || isNaN(Number(id));
+
+  // 2️⃣ Cargar el detalle de la postulación seleccionada
   useEffect(() => {
+    if (idInvalido) return;
+    let cancelado = false;
+
     const cargarPostulacion = async () => {
-      if (!id || isNaN(Number(id))) {
-        setError("ID de postulación no válido");
-        setCargando(false);
-        return;
-      }
-      setCargando(true);
-      setError(null);
       try {
         const token = localStorage.getItem('token');
-        
+
         const respuesta = await fetch(`${apiBase}/postulaciones/${id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-        
+
+        if (cancelado) return;
+
         if (respuesta.ok) {
           const json = await respuesta.json();
+          if (cancelado) return;
           const dataBD = json.datos;
 
           const datosFormateados = {
@@ -279,38 +316,216 @@ export default function SeguimientoPostulacion() {
             fecha_postulacion: dataBD.fecha_postulacion,
             etapa_actual: obtenerEtapaNumerica(dataBD.estado_postulacion),
             estado_general: dataBD.estado_postulacion,
+            entrevista_realizada: Boolean(dataBD.entrevista_realizada),
+            visita_realizada: Boolean(dataBD.visita_realizada),
+            aprobacion_comite: Boolean(dataBD.aprobacion_comite),
+            fotos_hogar: parsearFotosHogar(dataBD.foto_domicilio_url),
+            documentos: {
+              carnet: dataBD.foto_cedula_url || null,
+              sueldo: dataBD.comprobante_ingresos_url || null,
+              domicilio: parsearFotosHogar(dataBD.foto_domicilio_url),
+            },
             mascota: {
               nombre: dataBD.nombre_animal || 'Mascota',
               foto: formatearFoto(dataBD.foto_animal),
             },
             fundacion: {
               nombre: dataBD.nombre_refugio || 'Fundación',
-              telefono: dataBD.telefono_refugio || null 
+              telefono: dataBD.telefono_refugio || null
             }
           };
 
           setPostulacion(datosFormateados);
+          setError(null);
+          setArchivosHogar([]);
+          setPreviewsHogar([]);
+          setMensajeFotos(null);
+          setArchivosDoc({ carnet: null, sueldo: null, domicilio: [] });
+          setMensajeDocs(null);
         } else {
           const errData = await respuesta.json().catch(() => ({}));
-          setError(errData.error || "No se pudo cargar la postulación");
+          if (!cancelado) {
+            setError(errData.error || "No se pudo cargar la postulación");
+          }
         }
       } catch (err) {
         console.error("Error de red:", err);
-        setError("Error de conexión al servidor");
+        if (!cancelado) {
+          setError("Error de conexión al servidor");
+        }
       } finally {
-        setCargando(false);
+        if (!cancelado) {
+          setCargando(false);
+        }
       }
     };
 
     cargarPostulacion();
-  }, [id, apiBase]);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [id, apiBase, idInvalido, formatearFoto]);
+
+  const handleCambiarPostulacion = (nuevoId) => {
+    if (Number(nuevoId) === Number(id)) return;
+    setArchivosHogar([]);
+    setPreviewsHogar([]);
+    setMensajeFotos(null);
+    setArchivosDoc({ carnet: null, sueldo: null, domicilio: [] });
+    setMensajeDocs(null);
+    setError(null);
+    setCargando(true);
+    navigate(`../${nuevoId}`, { relative: 'path', replace: true });
+  };
 
   const handleAgendar = () => {
-    if (postulacion?.fundacion?.telefono) {
-      const mensaje = `Hola, mi postulación por ${postulacion.mascota.nombre} está en evaluación y me gustaría coordinar la entrevista.`;
-      window.open(`https://wa.me/${postulacion.fundacion.telefono}?text=${encodeURIComponent(mensaje)}`, '_blank');
-    } else {
+    const raw = postulacion?.fundacion?.telefono;
+    if (!raw) {
       alert("La fundación aún no ha configurado su número de contacto. Por favor revisa tu correo.");
+      return;
+    }
+
+    // Deja solo dígitos (quita +, espacios, guiones, etc.)
+    let numero = String(raw).replace(/\D/g, '');
+    // Si en Chile guardaron solo 9 dígitos (ej. 912345678), agrega el 56
+    if (numero.length === 9 && numero.startsWith('9')) {
+      numero = `56${numero}`;
+    }
+
+    const mensaje = `Hola, mi postulación por ${postulacion.mascota.nombre} está en evaluación y me gustaría coordinar la entrevista.`;
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, '_blank');
+  };
+
+  // 📸 Handlers para subir fotos del hogar en Etapa 2
+  const handleSeleccionarFotosHogar = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const combinados = [...archivosHogar, ...files].slice(0, 5);
+    setArchivosHogar(combinados);
+    setPreviewsHogar(combinados.map((file) => URL.createObjectURL(file)));
+    setMensajeFotos(null);
+    e.target.value = '';
+  };
+
+  const handleQuitarPreview = (index) => {
+    const nuevosArchivos = archivosHogar.filter((_, i) => i !== index);
+    const nuevasPreviews = previewsHogar.filter((_, i) => i !== index);
+    setArchivosHogar(nuevosArchivos);
+    setPreviewsHogar(nuevasPreviews);
+  };
+
+  const handleSubirFotosHogar = async () => {
+    if (archivosHogar.length === 0 || !postulacion) return;
+
+    try {
+      setSubiendoFotos(true);
+      setMensajeFotos(null);
+
+      const formData = new FormData();
+      archivosHogar.forEach((archivo) => {
+        formData.append('fotos_hogar', archivo);
+      });
+
+      const token = localStorage.getItem('token');
+      const respuesta = await fetch(`${apiBase}/postulaciones/${postulacion.id}/fotos-hogar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!respuesta.ok) {
+        const errData = await respuesta.json().catch(() => ({}));
+        throw new Error(errData.error || 'No se pudieron subir las fotos');
+      }
+
+      const json = await respuesta.json();
+      const nuevasFotos = parsearFotosHogar(json.fotos_hogar || json.datos?.foto_domicilio_url);
+
+      setPostulacion((prev) => {
+        const listaFinal = nuevasFotos.length > 0 ? nuevasFotos : prev.fotos_hogar;
+        return {
+          ...prev,
+          fotos_hogar: listaFinal,
+          documentos: {
+            ...prev.documentos,
+            domicilio: listaFinal,
+          },
+        };
+      });
+
+      setArchivosHogar([]);
+      setPreviewsHogar([]);
+      setMensajeFotos({
+        tipo: 'ok',
+        texto: '¡Fotos enviadas! La fundación ya puede revisarlas en tu solicitud.'
+      });
+    } catch (err) {
+      console.error("Error subiendo fotos del hogar:", err);
+      setMensajeFotos({
+        tipo: 'error',
+        texto: err.message || 'Hubo un problema al subir las fotos. Intenta nuevamente.'
+      });
+    } finally {
+      setSubiendoFotos(false);
+    }
+  };
+
+  // 📄 Handler para subir documentos KYC en Etapa 3
+  const handleSubirDocumentosKYC = async (e) => {
+    e.preventDefault();
+    if (!postulacion) return;
+    if (!archivosDoc.carnet && !archivosDoc.sueldo && archivosDoc.domicilio.length === 0) {
+      setMensajeDocs({ tipo: 'error', texto: 'Selecciona al menos un documento (carnet, sueldo o domicilio).' });
+      return;
+    }
+
+    try {
+      setSubiendoDocs(true);
+      setMensajeDocs(null);
+
+      const formData = new FormData();
+      if (archivosDoc.carnet) formData.append('carnet', archivosDoc.carnet);
+      if (archivosDoc.sueldo) formData.append('sueldo', archivosDoc.sueldo);
+      archivosDoc.domicilio.forEach((file) => formData.append('domicilio', file));
+
+      const token = localStorage.getItem('token');
+      const respuesta = await fetch(`${apiBase}/postulaciones/${postulacion.id}/documentos`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!respuesta.ok) {
+        const errData = await respuesta.json().catch(() => ({}));
+        throw new Error(errData.error || 'No se pudieron subir los documentos');
+      }
+
+      const json = await respuesta.json();
+      const actualizado = json.datos || {};
+      const domicilioActualizado = parsearFotosHogar(actualizado.foto_domicilio_url);
+
+      setPostulacion((prev) => ({
+        ...prev,
+        estado_general: actualizado.estado_postulacion || prev.estado_general,
+        etapa_actual: obtenerEtapaNumerica(actualizado.estado_postulacion || prev.estado_general),
+        fotos_hogar: domicilioActualizado.length > 0 ? domicilioActualizado : prev.fotos_hogar,
+        documentos: {
+          carnet: actualizado.foto_cedula_url || prev.documentos?.carnet || null,
+          sueldo: actualizado.comprobante_ingresos_url || prev.documentos?.sueldo || null,
+          domicilio: domicilioActualizado.length > 0 ? domicilioActualizado : (prev.documentos?.domicilio || []),
+        },
+      }));
+
+      setArchivosDoc({ carnet: null, sueldo: null, domicilio: [] });
+      setMensajeDocs({ tipo: 'ok', texto: '¡Documentos guardados! Ya puedes revisarlos aquí abajo.' });
+    } catch (err) {
+      setMensajeDocs({ tipo: 'error', texto: err.message || 'Error al subir documentos.' });
+    } finally {
+      setSubiendoDocs(false);
     }
   };
 
@@ -386,11 +601,7 @@ export default function SeguimientoPostulacion() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => {
-                      if (!esActual) {
-                        navigate(`../${item.id}`, { relative: 'path', replace: true });
-                      }
-                    }}
+                    onClick={() => handleCambiarPostulacion(item.id)}
                     className={`flex items-center gap-3 p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
                       esActual
                         ? tema.itemActivo
@@ -528,63 +739,381 @@ export default function SeguimientoPostulacion() {
             )}
 
             {/* VISTA ETAPA 2: Evaluación */}
-            {postulacion.etapa_actual === 2 && (
-              <div className="space-y-5">
-                <div className="flex items-center gap-3">
-                  <div className={`p-3 rounded-2xl ${tema.etapa2Icon}`}>
-                    <Video className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-black text-slate-800">Evaluación y Entrevistas</h3>
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium">Etapa 2: Conociéndonos mejor</p>
-                  </div>
-                </div>
+            {postulacion.etapa_actual === 2 && (() => {
+              const entrevistaOk = Boolean(postulacion.entrevista_realizada);
+              const visitaOk = Boolean(postulacion.visita_realizada);
+              const comiteOk = Boolean(postulacion.aprobacion_comite);
+              const fotosGuardadas = Array.isArray(postulacion.fotos_hogar) ? postulacion.fotos_hogar : [];
 
-                <div className={`bg-white p-5 sm:p-6 rounded-3xl border ${tema.border} shadow-sm space-y-5`}>
-                  <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                    ¡Felicidades! Tu formulario inicial fue aprobado. El siguiente paso es realizar una breve entrevista telefónica o por videollamada para conocerte mejor y conversar sobre los cuidados de <strong className={tema.textoFuerte}>{postulacion.mascota.nombre}</strong>.
-                  </p>
-                  
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button 
-                      onClick={handleAgendar} 
-                      className={`flex-1 bg-gradient-to-r ${tema.btnPrimario} text-white py-3.5 px-6 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer`}
-                    >
-                      <Calendar className="w-4 h-4" /> Agendar Videollamada
-                    </button>
-                    <button 
-                      onClick={handleAgendar} 
-                      className="flex-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border-2 border-sky-200 py-3.5 px-6 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
-                    >
-                      Contactar por WhatsApp
-                    </button>
+              return (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-3 rounded-2xl ${tema.etapa2Icon}`}>
+                      <Video className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-black text-slate-800">Evaluación y Entrevistas</h3>
+                      <p className="text-xs sm:text-sm text-slate-500 font-medium">Etapa 2: Conociéndonos mejor</p>
+                    </div>
+                  </div>
+
+                  {/* Checklist en vivo */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className={`p-4 rounded-2xl border bg-white flex items-center gap-3 ${entrevistaOk ? 'border-emerald-200 bg-emerald-50/40' : tema.border}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${entrevistaOk ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {entrevistaOk ? <CheckCircle className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-slate-800">1. Entrevista</p>
+                        <p className={`text-[11px] font-bold ${entrevistaOk ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {entrevistaOk ? 'Completada' : 'Por coordinar'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={`p-4 rounded-2xl border bg-white flex items-center gap-3 ${visitaOk ? 'border-emerald-200 bg-emerald-50/40' : tema.border}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${visitaOk ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {visitaOk ? <CheckCircle className="w-5 h-5" /> : <Home className="w-5 h-5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-slate-800">2. Hogar / Fotos</p>
+                        <p className={`text-[11px] font-bold ${visitaOk ? 'text-emerald-600' : fotosGuardadas.length > 0 ? 'text-sky-600' : 'text-amber-600'}`}>
+                          {visitaOk ? 'Verificado' : fotosGuardadas.length > 0 ? 'En revisión' : 'Pendiente'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={`p-4 rounded-2xl border bg-white flex items-center gap-3 ${comiteOk ? 'border-emerald-200 bg-emerald-50/40' : tema.border}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${comiteOk ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {comiteOk ? <CheckCircle className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-slate-800">3. Comité</p>
+                        <p className={`text-[11px] font-bold ${comiteOk ? 'text-emerald-600' : 'text-slate-400'}`}>
+                          {comiteOk ? 'Aprobado' : 'En espera'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Paso 1: Entrevista */}
+                  <div className={`bg-white p-5 sm:p-6 rounded-3xl border ${tema.border} shadow-sm space-y-4`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-extrabold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+                        <Calendar className={`w-4 h-4 ${tema.icon}`} />
+                        Paso 1: Coordinar entrevista
+                      </h4>
+                      {entrevistaOk && (
+                        <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                          Listo ✓
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      ¡Felicidades! Tu formulario inicial fue aprobado. Coordina una breve llamada o videollamada para conocerte mejor y conversar sobre los cuidados de <strong className={tema.textoFuerte}>{postulacion.mascota.nombre}</strong>.
+                    </p>
+
+                    {!entrevistaOk && (
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button 
+                          onClick={handleAgendar} 
+                          className={`flex-1 bg-gradient-to-r ${tema.btnPrimario} text-white py-3.5 px-6 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer`}
+                        >
+                          <Calendar className="w-4 h-4" /> Agendar Videollamada
+                        </button>
+                        <button 
+                          onClick={handleAgendar} 
+                          className="flex-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border-2 border-sky-200 py-3.5 px-6 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        >
+                          Contactar por WhatsApp
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Paso 2: Fotos del hogar (alternativa a visita domiciliaria) */}
+                  <div className={`bg-white p-5 sm:p-6 rounded-3xl border ${tema.border} shadow-sm space-y-4`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-extrabold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+                        <Camera className={`w-4 h-4 ${tema.icon}`} />
+                        Paso 2: Fotos de tu hogar
+                      </h4>
+                      {visitaOk && (
+                        <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                          Aprobado ✓
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Si la fundación no realiza visita presencial, puedes subir hasta <strong>5 fotos</strong> de tu casa o departamento (cierres perimetrales, patio, mallas en ventanas o espacio donde dormirá) para validar que sea un entorno seguro.
+                    </p>
+
+                    {/* Galería de fotos ya subidas */}
+                    {fotosGuardadas.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wide">
+                          Fotos enviadas ({fotosGuardadas.length})
+                        </p>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                          {fotosGuardadas.map((url, idx) => (
+                            <a
+                              key={idx}
+                              href={formatearFoto(url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="aspect-square rounded-2xl overflow-hidden border-2 border-emerald-100 shadow-sm hover:opacity-90 transition"
+                            >
+                              <img
+                                src={formatearFoto(url)}
+                                alt={`Hogar ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Selector y envío de fotos */}
+                    {!visitaOk && (
+                      <div className="space-y-3">
+                        <label className={`flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-dashed ${tema.border} bg-slate-50/70 hover:bg-slate-50 cursor-pointer transition text-center`}>
+                          <Upload className={`w-6 h-6 ${tema.icon}`} />
+                          <span className="text-xs sm:text-sm font-extrabold text-slate-700">
+                            Seleccionar fotos del hogar
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            JPG, PNG o WEBP · Máximo 5 imágenes
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleSeleccionarFotosHogar}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {previewsHogar.length > 0 && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                              {previewsHogar.map((src, idx) => (
+                                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200">
+                                  <img src={src} alt="Previsualización" className="w-full h-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuitarPreview(idx)}
+                                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-900/70 hover:bg-rose-500 text-white flex items-center justify-center transition cursor-pointer"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleSubirFotosHogar}
+                              disabled={subiendoFotos}
+                              className={`w-full bg-gradient-to-r ${tema.btnPrimario} text-white py-3 px-6 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-60`}
+                            >
+                              {subiendoFotos ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" /> Subiendo fotos...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="w-4 h-4" /> Enviar {archivosHogar.length} {archivosHogar.length === 1 ? 'foto' : 'fotos'} a la fundación
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {mensajeFotos && (
+                      <div className={`text-xs sm:text-sm font-bold p-3 rounded-xl border ${
+                        mensajeFotos.tipo === 'ok'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-rose-50 text-rose-600 border-rose-200'
+                      }`}>
+                        {mensajeFotos.texto}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Aviso informativo de comité */}
+                  <div className="flex gap-3 text-xs sm:text-sm text-amber-700 bg-amber-50/90 p-4 rounded-2xl border border-amber-200">
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">
+                      Una vez realizadas la entrevista y la revisión de tu hogar, el comité de la fundación evaluará tu caso para pasar a la etapa de documentos y contrato.
+                    </p>
                   </div>
                 </div>
-
-                <div className="flex gap-3 text-xs sm:text-sm text-amber-700 bg-amber-50/90 p-4 rounded-2xl border border-amber-200">
-                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                  <p className="leading-relaxed">
-                    Dependiendo de la fundación, también se podría coordinar una visita domiciliaria para asegurar que el espacio sea seguro (mallas en ventanas, cierres perimetrales, etc.).
-                  </p>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* VISTA ETAPA 3: Documentos */}
-            {postulacion.etapa_actual === 3 && (
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-amber-100 shadow-sm text-center max-w-lg mx-auto">
-                <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <FileText className="w-8 h-8" />
+            {postulacion.etapa_actual === 3 && (() => {
+              const docs = postulacion.documentos || {};
+              const listaDomicilio = Array.isArray(docs.domicilio) ? docs.domicilio : [];
+
+              return (
+                <div className="space-y-6 max-w-2xl mx-auto">
+                  <div className="bg-white p-6 sm:p-8 rounded-3xl border border-amber-100 shadow-sm">
+                    <div className="flex flex-col items-center text-center mb-6">
+                      <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mb-3">
+                        <FileText className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl sm:text-2xl font-black text-slate-800 mb-1">
+                        Documentos y Verificación ✍️
+                      </h3>
+                      <p className="text-sm text-slate-500 leading-relaxed">
+                        Sube tu carnet de identidad, comprobante de ingresos y respaldo de domicilio. Aquí podrás ver todo tu expediente completo.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleSubirDocumentosKYC} className="space-y-4 text-left">
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                          Carnet de identidad (JPG, PNG, WEBP o PDF)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => setArchivosDoc((p) => ({ ...p, carnet: e.target.files?.[0] || null }))}
+                          className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                          Comprobante de ingresos / sueldo (JPG, PNG, WEBP o PDF)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => setArchivosDoc((p) => ({ ...p, sueldo: e.target.files?.[0] || null }))}
+                          className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                          Comprobante o fotos adicionales de domicilio (hasta 5)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          multiple
+                          onChange={(e) => setArchivosDoc((p) => ({ ...p, domicilio: Array.from(e.target.files || []).slice(0, 5) }))}
+                          className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
+                        />
+                      </div>
+
+                      {mensajeDocs && (
+                        <div className={`text-xs sm:text-sm font-bold p-3 rounded-xl border ${
+                          mensajeDocs.tipo === 'ok'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-rose-50 text-rose-600 border-rose-200'
+                        }`}>
+                          {mensajeDocs.texto}
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={subiendoDocs}
+                        className="w-full bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white py-3.5 px-8 rounded-2xl font-extrabold text-sm shadow-md shadow-amber-200 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                      >
+                        {subiendoDocs ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" /> Subiendo documentos...
+                          </>
+                        ) : (
+                          'Subir Documentos'
+                        )}
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Expediente completo: todo lo subido en Etapa 2 y Etapa 3 */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                    <h4 className="font-extrabold text-sm sm:text-base text-slate-800">
+                      Expediente de documentos cargados
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/70">
+                        <p className="text-xs font-extrabold text-slate-700 mb-1">Carnet de identidad</p>
+                        {docs.carnet ? (
+                          <a
+                            href={formatearFoto(docs.carnet)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-bold text-amber-600 underline break-all"
+                          >
+                            Ver carnet subido ↗
+                          </a>
+                        ) : (
+                          <p className="text-xs text-slate-400">Aún no cargado</p>
+                        )}
+                      </div>
+
+                      <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/70">
+                        <p className="text-xs font-extrabold text-slate-700 mb-1">Comprobante de ingresos / sueldo</p>
+                        {docs.sueldo ? (
+                          <a
+                            href={formatearFoto(docs.sueldo)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-bold text-amber-600 underline break-all"
+                          >
+                            Ver comprobante de sueldo ↗
+                          </a>
+                        ) : (
+                          <p className="text-xs text-slate-400">Aún no cargado</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/70 space-y-2.5">
+                      <p className="text-xs font-extrabold text-slate-700">
+                        Domicilio y fotos del hogar ({listaDomicilio.length})
+                      </p>
+                      {listaDomicilio.length > 0 ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                          {listaDomicilio.map((itemUrl, idx) => {
+                            const urlFinal = formatearFoto(itemUrl);
+                            const esPdf = String(itemUrl).toLowerCase().endsWith('.pdf');
+                            return (
+                              <a
+                                key={idx}
+                                href={urlFinal}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center p-2 hover:opacity-90 transition text-center"
+                              >
+                                {esPdf ? (
+                                  <span className="text-[11px] font-extrabold text-amber-700">PDF #{idx + 1} ↗</span>
+                                ) : (
+                                  <img src={urlFinal} alt={`Domicilio ${idx + 1}`} className="w-full h-full object-cover rounded-xl" />
+                                )}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400">Aún no hay fotos ni comprobante de domicilio.</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-800 mb-2">Firma de Documentos ✍️</h3>
-                <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                  ¡Ya casi! Solo necesitamos que subas una copia de tu carnet de identidad y los documentos requeridos por la fundación.
-                </p>
-                <button className="w-full sm:w-auto bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white py-3.5 px-8 rounded-2xl font-extrabold text-sm shadow-md shadow-amber-200 transition-all cursor-pointer">
-                  Subir Documentos
-                </button>
-              </div>
-            )}
+              );
+            })()}
 
             {/* VISTA ETAPA 4: Finalizada */}
             {postulacion.etapa_actual === 4 && (
