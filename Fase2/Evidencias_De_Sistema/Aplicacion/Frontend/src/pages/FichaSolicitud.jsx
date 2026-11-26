@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, FileText, Home, 
   ClipboardList, Clock, Download, Phone, Mail, 
   User, MessageCircle, ShieldCheck, ArrowRight, AlertCircle,
-  ShieldAlert, Calendar, X
+  ShieldAlert, Calendar, X, Plus, Trash2
 } from 'lucide-react';
 import MarcoLegal from './MarcoLegal';
 
@@ -12,12 +12,29 @@ export default function FichaSolicitud() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Estados
+  // Estados principales
   const [tabActiva, setTabActiva] = useState('formulario');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [solicitud, setSolicitud] = useState(null);
   const [enviandoAccion, setEnviandoAccion] = useState(false);
+
+  // Estados de Etapa 2: Checklist de Evaluación y Notas Internas
+  const [checklist, setChecklist] = useState({
+    entrevista: false,
+    visita: false,
+    comite: false
+  });
+  const [notasInternas, setNotasInternas] = useState('');
+
+  // 📸 Visor ampliado para las fotos del hogar
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
+
+  // 📅 Estados para el calendario de horarios disponibles de la fundación
+  const [fechaNueva, setFechaNueva] = useState('');
+  const [horaNueva, setHoraNueva] = useState('10:00');
+  const [horariosDisponibles, setHorariosDisponibles] = useState([]);
+  const [guardandoHorario, setGuardandoHorario] = useState(false);
 
   // Estados para reportes comunitarios del postulante
   const [reportesPostulante, setReportesPostulante] = useState([]);
@@ -27,6 +44,11 @@ export default function FichaSolicitud() {
   const [notificacion, setNotificacion] = useState({ mostrar: false, mensaje: '', tipo: 'success' });
   const [modalRechazo, setModalRechazo] = useState(false);
   const [motivoRechazo, setMotivoRechazo] = useState("La postulación no cumple con los requisitos mínimos de adopción.");
+  const [modalConfirmacionEtapa, setModalConfirmacionEtapa] = useState({
+    abierto: false,
+    nuevaEtapa: '',
+    nombreEtapaTexto: ''
+  });
 
   // Tema de la fundación (inicializado desde localStorage)
   const [tema] = useState(() => {
@@ -41,8 +63,16 @@ export default function FichaSolicitud() {
     }
   });
 
-  // Definimos un orden numérico para las etapas para saber si estamos avanzando o solo navegando
+  // Orden numérico para las etapas para saber si estamos avanzando o solo navegando
   const ordenEstados = ['En Revisión', 'En Evaluación', 'Revisión de Documentos', 'Cierre y Contrato', 'Aprobada', 'Rechazada'];
+
+  // Validación del checklist de Evaluación
+  const checksMarcados = Object.values(checklist).filter(Boolean).length;
+  const checklistCompleto = checksMarcados === 3;
+
+  const toggleCheck = (campo) => {
+    setChecklist(prev => ({ ...prev, [campo]: !prev[campo] }));
+  };
 
   useEffect(() => {
     const cargarFicha = async () => {
@@ -82,6 +112,12 @@ export default function FichaSolicitud() {
         const post = data.datos || data;
 
         const rutAdoptante = post.rut_adoptante || '';
+        const estadoCargado = post.estado_postulacion || 'En Revisión';
+
+        // Si la postulación ya superó Evaluación, marcamos los 3 checks por defecto
+        if (['Revisión de Documentos', 'Cierre y Contrato', 'Aprobada'].includes(estadoCargado)) {
+          setChecklist({ entrevista: true, visita: true, comite: true });
+        }
 
         // Filtrar reportes que coincidan con el RUT del postulante
         if (resReportes && resReportes.ok && rutAdoptante) {
@@ -94,7 +130,9 @@ export default function FichaSolicitud() {
 
         setSolicitud({
           id: post.id,
-          estado: post.estado_postulacion || 'En Revisión',
+          estado: estadoCargado,
+          fotos_hogar: post.fotos_hogar || null,
+          foto_domicilio_url: post.foto_domicilio_url || null,
           postulante: {
             nombre: post.nombre_adoptante || 'Sin Nombre',
             rut: rutAdoptante,
@@ -103,7 +141,7 @@ export default function FichaSolicitud() {
             ciudad: post.direccion_adoptante || 'No especificada',
             foto: post.foto_adoptante || '',
             avatar: (post.nombre_adoptante || 'A').charAt(0).toUpperCase()
-            },
+          },
           mascota: {
             nombre: post.nombre_animal || 'No especificada',
             especie: post.especie_animal || 'No especificada',
@@ -137,19 +175,116 @@ export default function FichaSolicitud() {
     setTimeout(() => setNotificacion({ mostrar: false, mensaje: '', tipo: 'success' }), 4000);
   };
 
-  // Función inteligente de avance de etapa
-  const avanzarEtapaInteligente = async (nuevaEtapa, nombreEtapaTexto) => {
+  // Extrae hasta 5 fotos del hogar desde solicitud (funciona si viene como array o JSON string)
+  const fotosHogar = (() => {
+    const raw = solicitud?.fotos_hogar || solicitud?.foto_domicilio_url;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.slice(0, 5);
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.slice(0, 5) : [raw];
+    } catch {
+      return [raw];
+    }
+  })();
+
+  // Agregar horario disponible (intenta guardar en backend; si aún no existe el endpoint, lo guarda en pantalla para probar)
+  const handleAgregarHorario = async () => {
+    if (!fechaNueva || !horaNueva) {
+      mostrarToast('Selecciona una fecha y una hora', 'error');
+      return;
+    }
+
+    const existe = horariosDisponibles.some(
+      (h) => h.fecha === fechaNueva && h.hora === horaNueva
+    );
+    if (existe) {
+      mostrarToast('Ese horario ya está agregado', 'error');
+      return;
+    }
+
+    setGuardandoHorario(true);
+    const nuevoBloque = {
+      id: Date.now(),
+      fecha: fechaNueva,
+      hora: horaNueva,
+      disponible: true,
+    };
+
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiBase}/horarios`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ fecha: fechaNueva, hora: horaNueva }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setHorariosDisponibles((prev) => [...prev, data.datos || nuevoBloque]);
+      } else {
+        // Fallback temporal mientras el backend crea /horarios
+        setHorariosDisponibles((prev) => [...prev, nuevoBloque]);
+      }
+      mostrarToast('Horario disponible agregado', 'success');
+    } catch {
+      setHorariosDisponibles((prev) => [...prev, nuevoBloque]);
+      mostrarToast('Horario agregado (pendiente conexión backend)', 'success');
+    } finally {
+      setGuardandoHorario(false);
+    }
+  };
+
+  const handleEliminarHorario = async (horarioId) => {
+    setHorariosDisponibles((prev) => prev.filter((h) => h.id !== horarioId));
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      await fetch(`${apiBase}/horarios/${horarioId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // Silencioso mientras el backend no tenga el endpoint
+    }
+  };
+
+  // Abre confirmación solo si es una etapa nueva (si ya pasaste por ella, solo cambia de pestaña)
+  const avanzarEtapaInteligente = (nuevaEtapa, nombreEtapaTexto) => {
     const indexEstadoActual = ordenEstados.indexOf(solicitud.estado);
     const indexEstadoDestino = ordenEstados.indexOf(nombreEtapaTexto);
 
-    // Si ya estamos en esta etapa (o una más avanzada), SOLO navegamos visualmente, no llamamos al backend
     if (indexEstadoActual >= indexEstadoDestino) {
       setTabActiva(nuevaEtapa);
       return;
     }
 
-    // Si es una etapa nueva, llamamos al backend y mandamos correo
+    // Bloquea el avance a Documentos o etapas posteriores si faltan checks de Evaluación
+    if (
+      indexEstadoDestino >= ordenEstados.indexOf('Revisión de Documentos') &&
+      !checklistCompleto
+    ) {
+      mostrarToast('Debes marcar los 3 requisitos del checklist de evaluación antes de avanzar.', 'error');
+      return;
+    }
+
+    setModalConfirmacionEtapa({
+      abierto: true,
+      nuevaEtapa,
+      nombreEtapaTexto
+    });
+  };
+
+  // Ejecuta el PUT solo si el usuario confirma en el modal
+  const confirmarAvanceEtapa = async () => {
+    const { nuevaEtapa, nombreEtapaTexto } = modalConfirmacionEtapa;
+    setModalConfirmacionEtapa({ abierto: false, nuevaEtapa: '', nombreEtapaTexto: '' });
     setEnviandoAccion(true);
+
     try {
       const token = localStorage.getItem('token');
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -168,12 +303,12 @@ export default function FichaSolicitud() {
         setSolicitud(prev => ({ ...prev, estado: nombreEtapaTexto }));
         mostrarToast(`¡Proceso actualizado! Se notificó a ${solicitud.postulante.nombre}.`);
       } else {
-        mostrarToast('Error al actualizar la etapa en el servidor.', 'error');
+        const errorData = await res.json().catch(() => ({}));
+        mostrarToast(errorData.error || 'Error al actualizar la etapa en el servidor.', 'error');
       }
     } catch (err) {
       console.error("Error al avanzar etapa:", err);
-      mostrarToast('Error de conexión. Se avanzó localmente.', 'error');
-      setTabActiva(nuevaEtapa);
+      mostrarToast('Error de conexión. No se pudo actualizar la etapa.', 'error');
     } finally {
       setEnviandoAccion(false);
     }
@@ -243,6 +378,10 @@ export default function FichaSolicitud() {
     );
   }
 
+  const yaSuperoEvaluacion = ordenEstados.indexOf(solicitud.estado) >= ordenEstados.indexOf('Revisión de Documentos');
+  const bloqueoEvaluacion = !checklistCompleto && !yaSuperoEvaluacion;
+  const esAprobacionFinal = modalConfirmacionEtapa.nombreEtapaTexto === 'Aprobada';
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-700 flex flex-col relative overflow-hidden">
       
@@ -285,6 +424,61 @@ export default function FichaSolicitud() {
                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 transition shadow-sm"
               >
                 Confirmar Rechazo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ MODAL DE CONFIRMACIÓN PARA AVANZAR DE ETAPA O APROBAR */}
+      {modalConfirmacionEtapa.abierto && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 ${
+                  esAprobacionFinal ? 'bg-emerald-500' : ''
+                }`}
+                style={!esAprobacionFinal ? { backgroundColor: tema.principal } : undefined}
+              >
+                {esAprobacionFinal ? <CheckCircle className="w-5 h-5" /> : <ArrowRight className="w-5 h-5" />}
+              </div>
+              <h3 className="text-lg md:text-xl font-extrabold text-slate-800">
+                {esAprobacionFinal ? 'Confirmar aprobación' : 'Confirmar avance'}
+              </h3>
+            </div>
+            <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+              {esAprobacionFinal ? (
+                <>
+                  ¿Confirmas aprobar definitivamente la adopción de{' '}
+                  <span className="font-bold text-slate-800">{solicitud.mascota.nombre}</span> para{' '}
+                  <span className="font-bold text-slate-800">{solicitud.postulante.nombre}</span>?
+                  {' '}Se enviará el correo de aprobación al adoptante.
+                </>
+              ) : (
+                <>
+                  ¿Confirmas avanzar esta solicitud a la etapa{' '}
+                  <span className="font-bold text-slate-800">{modalConfirmacionEtapa.nombreEtapaTexto}</span>?
+                  {' '}Se enviará un correo de notificación al adoptante.
+                </>
+              )}
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setModalConfirmacionEtapa({ abierto: false, nuevaEtapa: '', nombreEtapaTexto: '' })}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarAvanceEtapa}
+                disabled={enviandoAccion}
+                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-white transition shadow-sm disabled:opacity-50 ${
+                  esAprobacionFinal ? 'bg-emerald-500 hover:bg-emerald-600' : 'hover:opacity-90'
+                }`}
+                style={!esAprobacionFinal ? { backgroundColor: tema.principal } : undefined}
+              >
+                {esAprobacionFinal ? 'Aprobar y Notificar' : 'Confirmar y Notificar'}
               </button>
             </div>
           </div>
@@ -356,21 +550,21 @@ export default function FichaSolicitud() {
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             
             {/* Info del Adoptante */}
-<div className="flex items-start sm:items-center gap-4 md:gap-5 w-full lg:w-auto">
-  {solicitud.postulante.foto ? (
-    <img
-      src={solicitud.postulante.foto}
-      alt={solicitud.postulante.nombre}
-      className="w-14 h-14 md:w-20 md:h-20 rounded-full object-cover shadow-md shrink-0 mt-1 sm:mt-0 border-2 border-white"
-    />
-  ) : (
-    <div 
-      className="w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-3xl font-extrabold text-white shadow-md shrink-0 mt-1 sm:mt-0"
-      style={{ backgroundColor: tema.secundario }}
-    >
-      {solicitud.postulante.avatar}
-    </div>
-  )}
+            <div className="flex items-start sm:items-center gap-4 md:gap-5 w-full lg:w-auto">
+              {solicitud.postulante.foto ? (
+                <img
+                  src={solicitud.postulante.foto}
+                  alt={solicitud.postulante.nombre}
+                  className="w-14 h-14 md:w-20 md:h-20 rounded-full object-cover shadow-md shrink-0 mt-1 sm:mt-0 border-2 border-white"
+                />
+              ) : (
+                <div 
+                  className="w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-3xl font-extrabold text-white shadow-md shrink-0 mt-1 sm:mt-0"
+                  style={{ backgroundColor: tema.secundario }}
+                >
+                  {solicitud.postulante.avatar}
+                </div>
+              )}
               
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
@@ -406,9 +600,8 @@ export default function FichaSolicitud() {
               </div>
             </div>
 
-            {/* Info de Mascota y Acciones */}
+            {/* Info de Mascota */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-slate-100 lg:border-slate-200 pt-4 lg:pt-0 lg:pl-6">
-              
               <div className="flex items-center gap-3 bg-slate-50 px-4 py-2.5 md:py-2 rounded-2xl border border-slate-100 flex-1 sm:flex-none">
                 {solicitud.mascota.foto ? (
                   <img src={solicitud.mascota.foto} alt="Mascota" className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover shrink-0" />
@@ -420,28 +613,11 @@ export default function FichaSolicitud() {
                   <p className="font-extrabold text-slate-700 text-sm md:text-base truncate">{solicitud.mascota.nombre || 'No especificada'}</p>
                 </div>
               </div>
-
-              <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
-                <button 
-                  className="flex-1 sm:flex-none px-3 md:px-6 py-2.5 rounded-xl text-white font-bold shadow-md hover:opacity-90 transition flex items-center gap-2 justify-center text-xs md:text-sm"
-                  style={{ backgroundColor: tema.principal }}
-                  onClick={() => mostrarToast('Función de aprobar rápido en desarrollo', 'success')}
-                >
-                  <CheckCircle className="w-4 h-4 md:w-5 md:h-5 shrink-0"/> Aprobar
-                </button>
-                <button 
-                  onClick={() => setModalRechazo(true)}
-                  disabled={enviandoAccion || solicitud.estado === 'Rechazada'}
-                  className="flex-1 sm:flex-none px-3 md:px-6 py-2.5 rounded-xl text-red-600 bg-red-50 border border-red-200 font-bold hover:bg-red-100 transition flex items-center gap-2 justify-center text-xs md:text-sm text-center disabled:opacity-50"
-                >
-                  <XCircle className="w-4 h-4 shrink-0"/> Rechazar
-                </button>
-              </div>
             </div>
 
           </div>
 
-          {/* 🚨 BANNER DE ALERTA SI EL POSTULANTE TIENE REPORTES EN LA RED */}
+          {/* BANNER DE ALERTA SI EL POSTULANTE TIENE REPORTES EN LA RED */}
           {reportesPostulante.length > 0 && (
             <div className="mt-6 p-4 rounded-2xl bg-red-50 border border-red-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
               <div className="flex items-center gap-3">
@@ -549,24 +725,211 @@ export default function FichaSolicitud() {
                 <p className="text-xs md:text-sm text-slate-400 mt-0.5">Etapa 2: Validación de filtros de la fundación</p>
               </div>
 
+              {/* Checklist y Notas */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                 <div>
-                  <h3 className="font-bold text-slate-700 mb-3 text-sm md:text-base">Checklist de Verificación</h3>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100"><input type="checkbox" className="w-4 h-4 md:w-5 md:h-5 rounded text-pink-500" /><span className="font-medium text-sm md:text-base">Entrevista realizada</span></label>
-                    <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100"><input type="checkbox" className="w-4 h-4 md:w-5 md:h-5 rounded text-pink-500" /><span className="font-medium text-sm md:text-base">Visita domiciliaria/fotos</span></label>
-                    <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100"><input type="checkbox" className="w-4 h-4 md:w-5 md:h-5 rounded text-pink-500" /><span className="font-medium text-sm md:text-base">Aprobación comité</span></label>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-slate-700 text-sm md:text-base">Checklist de Verificación</h3>
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      checklistCompleto ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {checksMarcados}/3 completados
+                    </span>
                   </div>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition">
+                      <input
+                        type="checkbox"
+                        checked={checklist.entrevista}
+                        onChange={() => toggleCheck('entrevista')}
+                        className="w-4 h-4 md:w-5 md:h-5 rounded cursor-pointer"
+                        style={{ accentColor: tema.principal }}
+                      />
+                      <span className="font-medium text-sm md:text-base">Entrevista realizada</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition">
+                      <input
+                        type="checkbox"
+                        checked={checklist.visita}
+                        onChange={() => toggleCheck('visita')}
+                        className="w-4 h-4 md:w-5 md:h-5 rounded cursor-pointer"
+                        style={{ accentColor: tema.principal }}
+                      />
+                      <span className="font-medium text-sm md:text-base">Visita domiciliaria/fotos</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition">
+                      <input
+                        type="checkbox"
+                        checked={checklist.comite}
+                        onChange={() => toggleCheck('comite')}
+                        className="w-4 h-4 md:w-5 md:h-5 rounded cursor-pointer"
+                        style={{ accentColor: tema.principal }}
+                      />
+                      <span className="font-medium text-sm md:text-base">Aprobación comité</span>
+                    </label>
+                  </div>
+
+                  {bloqueoEvaluacion && (
+                    <p className="mt-3 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      Marca los 3 requisitos obligatorios para habilitar el avance a Documentos.
+                    </p>
+                  )}
                 </div>
+
                 <div>
                   <h3 className="font-bold text-slate-700 mb-3 text-sm md:text-base">Notas Internas</h3>
-                  <textarea rows="5" className="w-full bg-amber-50 border border-amber-200 p-3 md:p-4 rounded-2xl text-amber-900 outline-none focus:ring-2 focus:ring-amber-400 resize-none text-sm md:text-base custom-scrollbar" placeholder="Escribe notas aquí..."></textarea>
+                  <textarea
+                    rows={5}
+                    value={notasInternas}
+                    onChange={(e) => setNotasInternas(e.target.value)}
+                    className="w-full bg-amber-50 border border-amber-200 p-3 md:p-4 rounded-2xl text-amber-900 outline-none focus:ring-2 focus:ring-amber-400 resize-none text-sm md:text-base custom-scrollbar"
+                    placeholder="Escribe notas aquí..."
+                  ></textarea>
                   <div className="flex justify-end mt-3 md:mt-4">
-                    <button onClick={() => mostrarToast('Notas guardadas', 'success')} className="w-full sm:w-auto px-6 py-2.5 bg-amber-200 text-amber-800 font-bold rounded-xl hover:bg-amber-300 text-sm">Guardar Notas</button>
+                    <button
+                      onClick={() => mostrarToast('Notas guardadas', 'success')}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-amber-200 text-amber-800 font-bold rounded-xl hover:bg-amber-300 text-sm transition"
+                    >
+                      Guardar Notas
+                    </button>
                   </div>
                 </div>
               </div>
 
+              {/* 📸 GALERÍA DE FOTOS DEL HOGAR (hasta 5) */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 md:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Home className="w-5 h-5 text-slate-600" />
+                    <h3 className="font-bold text-slate-700 text-sm md:text-base">Fotos del Hogar del Postulante</h3>
+                  </div>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
+                    {fotosHogar.length}/5 fotos
+                  </span>
+                </div>
+
+                {fotosHogar.length === 0 ? (
+                  <p className="text-slate-400 text-sm italic py-6 text-center bg-white rounded-xl border border-dashed border-slate-200">
+                    El postulante aún no ha subido fotos de su hogar.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                    {Array.from({ length: 5 }).map((_, idx) => {
+                      const url = fotosHogar[idx];
+                      return url ? (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setFotoAmpliada(url)}
+                          className="group relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:ring-2 transition"
+                          style={{ '--tw-ring-color': tema.principal }}
+                        >
+                          <img
+                            src={url}
+                            alt={`Foto del hogar ${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                          />
+                          <span className="absolute bottom-1.5 right-1.5 text-[10px] font-bold bg-black/60 text-white px-2 py-0.5 rounded-full">
+                            Ver
+                          </span>
+                        </button>
+                      ) : (
+                        <div
+                          key={idx}
+                          className="aspect-square rounded-xl border border-dashed border-slate-200 bg-white/60 flex items-center justify-center text-xs text-slate-300 font-medium"
+                        >
+                          Sin foto {idx + 1}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 📅 CALENDARIO Y HORARIOS DISPONIBLES DE LA FUNDACIÓN */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 md:p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-slate-600" />
+                  <div>
+                    <h3 className="font-bold text-slate-700 text-sm md:text-base">Disponibilidad para Entrevistas</h3>
+                    <p className="text-xs text-slate-400">Agrega los días y horas disponibles para que el adoptante agende su videollamada</p>
+                  </div>
+                </div>
+
+                {/* Selector de fecha y hora */}
+                <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end bg-white p-4 rounded-xl border border-slate-200">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">Día disponible</label>
+                    <input
+                      type="date"
+                      value={fechaNueva}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setFechaNueva(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-300"
+                    />
+                  </div>
+                  <div className="w-full sm:w-40">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">Hora</label>
+                    <input
+                      type="time"
+                      value={horaNueva}
+                      onChange={(e) => setHoraNueva(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-300"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAgregarHorario}
+                    disabled={guardandoHorario}
+                    className="px-5 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm hover:opacity-90 transition disabled:opacity-50"
+                    style={{ backgroundColor: tema.principal }}
+                  >
+                    <Plus className="w-4 h-4" /> Agregar horario
+                  </button>
+                </div>
+
+                {/* Lista de horarios cargados */}
+                {horariosDisponibles.length === 0 ? (
+                  <p className="text-slate-400 text-xs italic text-center py-3">
+                    Aún no has cargado horarios disponibles.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {horariosDisponibles.map((h) => (
+                      <div
+                        key={h.id}
+                        className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 shadow-sm"
+                      >
+                        <div className="flex items-center gap-2.5 text-sm">
+                          <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                          <div>
+                            <p className="font-bold text-slate-700 leading-tight">{h.fecha}</p>
+                            <p className="text-xs text-slate-500">
+                              {h.hora} hrs ·{' '}
+                              <span className={h.disponible ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}>
+                                {h.disponible ? 'Disponible' : 'Reservado'}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        {h.disponible && (
+                          <button
+                            type="button"
+                            onClick={() => handleEliminarHorario(h.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                            title="Eliminar horario"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Botones inferiores */}
               <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center pt-6 border-t border-slate-100 gap-3">
                 <button
                   onClick={() => setTabActiva('formulario')}
@@ -584,14 +947,38 @@ export default function FichaSolicitud() {
                   </button>
                   <button
                     onClick={() => avanzarEtapaInteligente('documentos', 'Revisión de Documentos')}
-                    disabled={enviandoAccion}
-                    className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 shadow-sm transition hover:opacity-90 disabled:opacity-50 text-sm"
+                    disabled={enviandoAccion || bloqueoEvaluacion}
+                    title={bloqueoEvaluacion ? 'Completa los 3 puntos del checklist para avanzar' : ''}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 shadow-sm transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                     style={{ backgroundColor: tema.principal }}
                   >
                     Siguiente: Documentos <ArrowRight className="w-5 h-5 shrink-0"/>
                   </button>
                 </div>
               </div>
+
+              {/* Modal para ver foto del hogar en grande */}
+              {fotoAmpliada && (
+                <div
+                  className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+                  onClick={() => setFotoAmpliada(null)}
+                >
+                  <div className="relative max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => setFotoAmpliada(null)}
+                      className="absolute -top-10 right-0 text-white hover:text-slate-300 flex items-center gap-1 text-sm font-bold"
+                    >
+                      <X className="w-5 h-5" /> Cerrar
+                    </button>
+                    <img
+                      src={fotoAmpliada}
+                      alt="Foto del hogar ampliada"
+                      className="w-full max-h-[80vh] object-contain rounded-2xl bg-black"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -609,9 +996,16 @@ export default function FichaSolicitud() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                   {solicitud.documentos.map((doc, idx) => (
                     <div key={idx} className="border border-slate-200 rounded-2xl p-5 md:p-6 flex flex-col items-center text-center gap-3 bg-slate-50">
-                      <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-full shadow flex items-center justify-center text-slate-400"><FileText className="w-5 h-5 md:w-6 md:h-6 shrink-0"/></div>
+                      <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-full shadow flex items-center justify-center text-slate-400">
+                        <FileText className="w-5 h-5 md:w-6 md:h-6 shrink-0"/>
+                      </div>
                       <p className="font-bold text-slate-700 text-sm md:text-base">{doc.nombre}</p>
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="mt-1 md:mt-2 w-full py-2 md:py-2.5 bg-white border border-slate-200 text-slate-600 font-bold text-xs md:text-sm rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2 transition">
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 md:mt-2 w-full py-2 md:py-2.5 bg-white border border-slate-200 text-slate-600 font-bold text-xs md:text-sm rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2 transition"
+                      >
                         <Download className="w-4 h-4 shrink-0"/> Descargar
                       </a>
                     </div>
@@ -655,13 +1049,31 @@ export default function FichaSolicitud() {
                 <p className="text-xs md:text-sm text-slate-400 mt-0.5">Etapa 4: Finalización del proceso de adopción</p>
               </div>
 
-              <div className="flex flex-col items-center justify-center py-10 px-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                <ShieldCheck className="w-12 h-12 text-slate-300 mb-4" />
-                <h3 className="font-bold text-slate-700 text-lg mb-2">Preparando cierre legal</h3>
-                <p className="text-slate-500 text-sm text-center max-w-md">
-                  Asegúrate de haber revisado los documentos y las notas de evaluación antes de aprobar definitivamente esta solicitud.
-                </p>
-              </div>
+              {solicitud.estado === 'Aprobada' ? (
+                <div className="flex flex-col items-center justify-center py-10 px-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                  <CheckCircle className="w-12 h-12 text-emerald-500 mb-4" />
+                  <h3 className="font-bold text-emerald-800 text-lg mb-2">Adopción aprobada</h3>
+                  <p className="text-emerald-700 text-sm text-center max-w-md">
+                    Esta postulación ya fue aprobada y el postulante fue notificado correctamente.
+                  </p>
+                </div>
+              ) : solicitud.estado === 'Rechazada' ? (
+                <div className="flex flex-col items-center justify-center py-10 px-4 bg-red-50 border border-red-100 rounded-2xl">
+                  <XCircle className="w-12 h-12 text-red-400 mb-4" />
+                  <h3 className="font-bold text-red-800 text-lg mb-2">Solicitud rechazada</h3>
+                  <p className="text-red-700 text-sm text-center max-w-md">
+                    Esta postulación fue cerrada como rechazada y no puede aprobarse.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 px-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                  <ShieldCheck className="w-12 h-12 text-slate-300 mb-4" />
+                  <h3 className="font-bold text-slate-700 text-lg mb-2">Preparando cierre legal</h3>
+                  <p className="text-slate-500 text-sm text-center max-w-md">
+                    Asegúrate de haber revisado los documentos y las notas de evaluación antes de aprobar definitivamente esta solicitud.
+                  </p>
+                </div>
+              )}
 
               <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center pt-6 border-t border-slate-100 gap-3">
                 <button
@@ -683,7 +1095,7 @@ export default function FichaSolicitud() {
                     disabled={enviandoAccion || solicitud.estado === 'Aprobada' || solicitud.estado === 'Rechazada'}
                     className="w-full sm:w-auto px-6 py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 text-sm bg-emerald-500 hover:bg-emerald-600 transition shadow-sm disabled:opacity-50"
                   >
-                    <CheckCircle className="w-5 h-5 shrink-0"/> Aprobar Adopción
+                    <CheckCircle className="w-5 h-5 shrink-0"/> {solicitud.estado === 'Aprobada' ? 'Aprobada' : 'Aprobar Adopción'}
                   </button>
                 </div>
               </div>
